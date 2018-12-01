@@ -22,7 +22,7 @@ setup(
         "Programming Language :: Python :: Implementation :: PyPy",
         "Topic :: Software Development :: Libraries :: Python Modules",
     ],
-    python_requires=">=2.7",
+    python_requires='>=2.7, >=3.6.*',
     entry_points={"console_scripts": ["miqbox=miqbox.miqbox:cli"]},
     install_requires=install_requirements,
     long_description=readme,
