@@ -1,0 +1,15 @@
+<volume>
+    <name>{name}.{format}</name>
+    <allocation>0</allocation>
+    <capacity unit="G">{size}</capacity>
+    <target>
+        <format type="qcow2"/>
+        <path>/var/lib/virt/images/{name}.{format}</path>
+        <permissions>
+            <owner>107</owner>
+            <group>107</group>
+            <mode>0744</mode>
+            <label>virt_image_t</label>
+        </permissions>
+    </target>
+</volume>
