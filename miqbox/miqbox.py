@@ -1,3 +1,4 @@
+import logging
 import os
 import sys
 import time
@@ -26,22 +27,101 @@ class Connection(object):
         self.pool = None
 
 
-pass_connection = click.make_pass_decorator(Connection, ensure=True)
+connection = click.make_pass_decorator(Connection, ensure=True)
 
 
 @click.group()
-@click.option("--url", default="qemu:///system")
-@pass_connection
-def cli(connection, url):
+@click.option("--url", default="qemu:///system", help="Hypervisor drivers url")
+@click.option("--storage", default="default", help="Storage pool name")
+@connection
+def cli(connection, url, storage):
     try:
         connection.conn = libvirt.open(url)
     except Exception:
-        click.echo("Failed to open connection to {}".format(url), file=sys.stderr)
+        click.echo("Failed to open connection to {url}".format(url=url))
         exit(1)
+
     try:
-        connection.pool = connection.conn.storagePoolLookupByName("default")
-    except Exception:
-        click.echo("Failed to open storage pool...")
+        connection.pool = connection.conn.storagePoolLookupByName(storage)
+    except Exception as e:
+        click.echo("Failed to open storage pool {name}".format(name=storage))
+        exit(1)
+
+
+@connection
+def get_appliances(connection, status=None):
+    """Get appliances as per current status
+
+    Args:
+        status: (`str`) running, shut off, paused, idle, crashed, no state
+
+    Returns:
+        (`dirt`) all appliances/ appliances are per status
+    """
+    domains = {domain.name(): domain for domain in connection.conn.listAllDomains()}
+
+    if status:
+        return {name: dom for name, dom in domains.items() if VM_STATE[dom.state()[0]] == status}
+    else:
+        return domains
+
+
+def get_hostnames(domain):
+    """Get hostname assigned to appliances
+
+    Args:
+        domain: libvirt domain object
+
+    Returns:
+        (`dirt`) hostnames (vnet, eth, lo)
+    """
+
+    ips = dict()
+    if domain.isActive():
+        try:
+            ifaces = domain.interfaceAddresses(libvirt.VIR_DOMAIN_INTERFACE_ADDRESSES_SRC_LEASE, 0)
+            for iface, address in ifaces.items():
+                ips[iface] = [
+                    item["addr"]
+                    for item in address["addrs"]
+                    if item["type"] == libvirt.VIR_IP_ADDR_TYPE_IPV4
+                ]
+            return ips
+        except Exception:
+            return ips
+    else:
+        return ips
+
+
+def get_vm_info(domain):
+    """Get information of appliances
+
+    Args:
+        domain: libvirt domain object
+
+    Returns:
+        (`dirt`) having id, name, uuid, state, hostname
+    """
+
+    id = domain.ID() if domain.ID() > 0 else "---"
+    ips = get_hostnames(domain)
+
+    for conn, ip in ips.items():
+        if "lo" == conn:
+            pass
+        else:
+            ip = ip[0]
+            break
+    else:
+        ip = "---"
+
+    return {
+        "id": id,
+        "name": domain.name(),
+        "UUID": domain.UUIDString(),
+        "state": VM_STATE[domain.state()[0]],
+        "hostname": ip,
+    }
 
 
 def get_repo_img(url, extension="qcow2"):
@@ -74,66 +154,7 @@ def download_img(url):
             bar.update(len(chunk))
 
 
-def hostname(domain):
-    # IP Address
-    ips = dict()
-    if domain.isActive():
-        try:
-            ifaces = domain.interfaceAddresses(libvirt.VIR_DOMAIN_INTERFACE_ADDRESSES_SRC_LEASE, 0)
-            for iface, address in ifaces.items():
-                ips[iface] = [
-                    item["addr"]
-                    for item in address["addrs"]
-                    if item["type"] == libvirt.VIR_IP_ADDR_TYPE_IPV4
-                ]
-            return ips
-        except Exception:
-            return ips
-    else:
-        return ips
-
-
-def _vm_info(domain):
-    id = domain.ID() if domain.ID() > 0 else "---"
-
-    ips = hostname(domain)
-    for conn, ip in ips.items():
-        if "lo" == conn:
-            pass
-        else:
-            ip = ip[0]
-            break
-    else:
-        ip = "---"
-
-    return {
-        "id": id,
-        "name": domain.name(),
-        "UUID": domain.UUIDString(),
-        "state": VM_STATE[domain.state()[0]],
-        "hostname": ip,
-    }
-
-
-@pass_connection
-def _vm_not_running(connection):
-    return [
-        domain.name()
-        for domain in connection.conn.listAllDomains()
-        if domain.state()[0] != libvirt.VIR_DOMAIN_RUNNING
-    ]
-
-
-@pass_connection
-def _vm_running(connection):
-    return {
-        domain.ID(): domain.name()
-        for domain in connection.conn.listAllDomains()
-        if domain.state()[0] == libvirt.VIR_DOMAIN_RUNNING
-    }
-
-
-@pass_connection
+@connection
 def create_disk(connection, name, size, format="qcow2"):
     with open("xmls/storage.xml", "r") as f:
         stgvol_xml_raw = f.read()
@@ -146,7 +167,7 @@ def create_disk(connection, name, size, format="qcow2"):
         return False
 
 
-@pass_connection
+@connection
 def create_appliance(connection, name, base_img, db_img, memory):
     with open("xmls/appliance.xml", "r") as f:
         app_xml_raw = f.read()
@@ -158,72 +179,71 @@ def create_appliance(connection, name, base_img, db_img, memory):
         return False
 
 
-@cli.command(help="Appliance Info")
-@click.option("-a", "--all", is_flag=True, help="This return name of all appliances")
-@pass_connection
-def ps(connection, all):
+@cli.command(help="Appliance Status")
+@click.option("-a", "--all", is_flag=True, help="All Appliances")
+@click.option("-r", "--running", is_flag=True, help="All Running Appliances")
+@click.option("-s", "--stop", is_flag=True, help="All Stopped Appliances")
+def status(all, running, stop):
     if all:
-        data = [_vm_info(domain) for domain in connection.conn.listAllDomains()]
-        for index, info in enumerate(data):
-            if not index:
-                click.echo(
-                    "{:<5s}{:<20s}{:^10s}{:^15s}".format("Id", "Name", "Status", "Hostname")
-                )
-            click.echo(
-                "{:<5s}{:<20s}{:^10s}{:^15s}".format(
-                    str(info["id"]), info["name"], info["state"], info["hostname"]
-                )
+        status = None
+    elif running:
+        status = "running"
+    elif stop:
+        status = "shut off"
+
+    data = [get_vm_info(domain) for domain in get_appliances(status=status).values()]
+
+    for index, info in enumerate(data):
+        if not index:
+            click.echo("{:<5s}{:<20s}{:^10s}{:^15s}".format("Id", "Name", "Status", "Hostname"))
+        click.echo(
+            "{:<5s}{:<20s}{:^10s}{:^15s}".format(
+                str(info["id"]), info["name"], info["state"], info["hostname"]
             )
+        )
 
 
 @cli.command(help="Start Appliance")
-@click.option("--name", prompt="Appliance name please")
-@pass_connection
+@click.option("-n", "--name", prompt="Appliance name please", help="Appliance Name")
+@connection
 def start(connection, name):
-    domains = {item.name(): item for item in connection.conn.listAllDomains()}
     try:
-        dom = domains[name]
-        if dom.create() < 0:
-            click.echo("Appliance booting  fails")
+        domain = connection.conn.lookupByName(name)
     except Exception:
+        click.echo("Appliance {name} not found".format(name=name))
         click.echo("Select from appliance: ")
-        for app_name in _vm_not_running():
+        for app_name in get_appliances(status="shut off").keys():
             click.echo(app_name)
+        exit(1)
+
+    try:
+        domain.create()
+    except Exception:
+        click.echo("Fail to start appliance...")
 
 
 @cli.command(help="Stop Appliance")
-@click.option(
-    "--name",
-    default=None,
-    prompt="Appliance Name|Id please",
-    help="Stop Appliance by providing Name",
-)
-@pass_connection
+@click.option("-n", "--name", default=None, prompt="Appliance Name|Id", help="Appliance Name")
+@connection
 def stop(connection, name):
-    domains = {item.name(): item for item in connection.conn.listAllDomains()}
-
     try:
         id = int(name)
         dom = connection.conn.lookupByID(id)
-        dom.shutdown()
     except ValueError:
-        if stop in _vm_running().keys():
-            dom = domains[name]
+        dom = connection.conn.lookupByName(name)
+
+    if dom:
+        if dom.isActive():
             dom.shutdown()
-        else:
-            click.echo("Select from running appliance: ")
-            for id, app_name in _vm_running().items():
-                click.echo("{id} ==> {name}".format(id=str(id), name=app_name))
+    else:
+        click.echo("Select from running appliance:")
+        for name, dom in get_appliances("running"):
+            click.echo("{id} ==> {name}".format(id=str(dom.ID()), name=name))
 
 
 @cli.command(help="Kill Appliance")
-@click.option(
-    "--name",
-    default=None,
-    prompt="Appliance Name|Id please",
-    help="Kill Appliance",
-)
-@pass_connection
+@click.option("-n", "--name", default=None, prompt="Appliance Name please", help="Appliance Name")
+@connection
 def kill(connection, name):
     try:
         id = int(name)
@@ -240,8 +260,8 @@ def kill(connection, name):
             file = source.split("/")[-1]
             if file in storage_db.keys():
                 storage = storage_db[file]
-                click.echo("Deleting disk '{source}'...".format(source=file))
                 storage.delete()
+                click.echo("Deleted disk '{source}'...".format(source=file))
         dom.undefine()
     else:
         click.echo("Please select proper Name or Id of appliance")
@@ -299,15 +319,15 @@ def rmi(name):
 @click.option("--image", prompt="Image name please")
 @click.option("--memory", default=4, prompt="Memory in GiB")
 @click.option("--db_space", default=8, prompt="Database size in GiB")
-@pass_connection
+@connection
 def create(connection, name, image, memory, db_space, db=None):
     db_disk_name = "{app_name}-db".format(app_name=name)
     base_img = "{name}.qcow2".format(name=name)
     if image in os.listdir(IMG_DIR):
-        os.system("sudo cp {img_dir}/{img} /var/lib/libvirt/images/{name}".format(
-            img_dir=IMG_DIR,
-            img=image,
-            name=base_img)
+        os.system(
+            "sudo cp {img_dir}/{img} /var/lib/libvirt/images/{name}".format(
+                img_dir=IMG_DIR, img=image, name=base_img
+            )
         )
     else:
         click.echo("Image '{img}' not available...".format(img=image))
@@ -335,7 +355,7 @@ def create(connection, name, image, memory, db_space, db=None):
 
         timeout = time.time() + 300
         while True:
-            host = _vm_info(dom)['hostname']
-            if '--' not in host or time.time() > timeout:
+            host = _vm_info(dom)["hostname"]
+            if "--" not in host or time.time() > timeout:
                 break
         config(host=host)
