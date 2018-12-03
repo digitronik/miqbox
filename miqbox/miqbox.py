@@ -1,12 +1,11 @@
-import logging
 import os
-import sys
 import time
 import xml.etree.ElementTree as ET
 
 import click
 import libvirt
 import requests
+import yaml
 from bs4 import BeautifulSoup
 
 
@@ -20,21 +19,27 @@ VM_STATE = {
     libvirt.VIR_DOMAIN_NOSTATE: "no state",
 }
 
+home = os.environ["HOME"]
+
 
 class Connection(object):
     def __init__(self):
         self.conn = None
         self.pool = None
+        self.cfg = None
 
 
 connection = click.make_pass_decorator(Connection, ensure=True)
 
 
 @click.group()
-@click.option("--url", default="qemu:///system", help="Hypervisor drivers url")
-@click.option("--storage", default="default", help="Storage pool name")
 @connection
-def cli(connection, url, storage):
+def cli(connection):
+    conf = Configuration()
+    connection.cfg = conf.read()
+    url = connection.cfg.get("hypervisor_driver")
+    storage = connection.cfg.get("storage_pool")
+
     try:
         connection.conn = libvirt.open(url)
     except Exception:
@@ -46,6 +51,33 @@ def cli(connection, url, storage):
     except Exception as e:
         click.echo("Failed to open storage pool {name}".format(name=storage))
         exit(1)
+
+
+class Configuration(object):
+    def __init__(self):
+        self.conf_file = "{home}/.config/miqbox/conf.yml".format(home=home)
+        dir_path = os.path.dirname(self.conf_file)
+        if not os.path.isdir(dir_path):
+            os.makedirs(dir_path)
+        if not os.path.isfile(self.conf_file):
+            raw_cfg = {
+                'repository': {
+                    'upstream': 'http://releases.manageiq.org/',
+                    'downstream': 'None'},
+                "local_image": "{home}/.miqbox".format(home=home),
+                "libvirt_image": "/var/lib/libvirt/images/",
+                "hypervisor_driver": "qemu:///system",
+                "storage_pool": "default",
+            }
+            self.write(raw_cfg)
+
+    def read(self):
+        with open(self.conf_file, 'r') as ymlfile:
+            return yaml.load(ymlfile)
+
+    def write(self, cfg):
+        with open(self.conf_file, 'w') as ymlfile:
+            return yaml.dump(cfg, ymlfile, default_flow_style=False)
 
 
 @connection
@@ -124,19 +156,13 @@ def get_vm_info(domain):
     }
 
 
-def get_repo_img(url, extension="qcow2"):
-    page = requests.get(url).text
-    soup = BeautifulSoup(page, "html.parser")
-    return [
-        node.get("href") for node in soup.find_all("a") if node.get("href").endswith(extension)
-    ]
+@connection
+def download_img(connection, url):
+    img_dir = connection.cfg.get("local_image")
+    if not os.path.exists(img_dir):
+        os.makedirs(img_dir)
 
-
-def download_img(url):
-    if not os.path.exists(IMG_DIR):
-        os.makedirs(IMG_DIR)
-
-    img_name = url.split("/")[-1]
+    img_name = os.path.splitext(url)[-1]
     click.echo("Download request for: {img_name}".format(img_name=img_name))
     r = requests.get(url, stream=True)
 
@@ -145,13 +171,21 @@ def download_img(url):
         r.raise_for_status()
 
     total_size = int(r.headers.get("Content-Length"))
-    local_img_path = "{dir}/{img}".format(dir=IMG_DIR, img=img_name)
+    local_img_path = "{dir}/{img}".format(dir=img_dir, img=img_name)
     with click.progressbar(r.iter_content(1024), length=total_size) as bar, open(
         local_img_path, "wb"
     ) as file:
         for chunk in bar:
             file.write(chunk)
             bar.update(len(chunk))
+
+
+def get_repo_img(url, extension="qcow2", ssl_verify=False):
+    page = requests.get(url, verify=ssl_verify).text
+    soup = BeautifulSoup(page, "html.parser")
+    return [
+        node.get("href") for node in soup.find_all("a") if node.get("href").endswith(extension)
+    ]
 
 
 @connection
@@ -177,6 +211,22 @@ def create_appliance(connection, name, base_img, db_img, memory):
         return dom
     else:
         return False
+
+
+@cli.command(help="Configure miqbox")
+def config():
+    conf = Configuration()
+    cfg = conf.read()
+
+    cfg["hypervisor_driver"] = click.prompt("Hypervisor drivers url", default=cfg.get("hypervisor_driver"))
+    cfg["storage_pool"]= click.prompt("Storage Pool Name", default=cfg.get("storage_pool"))
+    cfg["libvirt_image"] = click.prompt("Libvirt Image Location", default=cfg.get("libvirt_image"))
+    cfg["local_image"] = click.prompt("Local Image Location", default=cfg.get("local_image"))
+
+    if click.confirm("Do you want to set downstream repository?"):
+        cfg["repository"]["downstream"] = click.prompt("Downstream Repository", default=cfg["repository"]["downstream"])
+
+    conf.write(cfg=cfg)
 
 
 @cli.command(help="Appliance Status")
@@ -270,36 +320,62 @@ def kill(connection, name):
 @cli.command()
 @click.option("-l", "--local", is_flag=True, help="All available images")
 @click.option("-r", "--remote", is_flag=True, help="All available remote images")
-@click.option("-v", "--version", type=click.Choice(["5.9", "5.10"]), prompt="Appliance Version")
-def images(local, remote, version):
-    img_dir = "{home}/.miqbox".format(home=os.environ["HOME"])
+@connection
+def images(connection, local, remote):
+    img_dir = connection.cfg.get("local_image")
     if not os.path.exists(img_dir):
         os.makedirs(img_dir)
 
+    stream = click.prompt("stream:", default="downstream", type=click.Choice(["downstream",
+                                                                   "upstream"]))
+    base_repo = connection.cfg["repository"].get(stream)
+    if stream == "downstream":
+        ver = click.prompt("Version:", default="5.10", type=click.Choice(["5.8", "5.9", "5.10"]))
+        extension = "qcow2"
+    else:
+        ver = "manageiq"
+        extension = "qc2"
+
     if local:
         for img in os.listdir(img_dir):
-            if version in img:
+            if ver in img:
                 click.echo(img)
+
     if remote:
-        url = BASE_REPO.format(ver=version)
-        for img in get_repo_img(url=url):
-            click.echo(img)
+        if stream == "upstream":
+            url = base_repo
+        else:
+            url = "{base_repo}/builds/cfme/{ver}/stable".format(base_repo=base_repo, ver=ver)
+
+    for img in get_repo_img(url=url, extension=extension):
+        click.echo(img)
 
 
 @cli.command(help="Download Image")
 @click.option("-n", "--name", prompt="Remote Image Name")
-def pull(name, url=None):
-    base_url = "{base}/{name}"
-    if "5.9" in name:
-        base = BASE_REPO.format(ver="5.9")
-        url = base_url.format(base=base, name=name)
-    elif "5.10" in name:
-        base = BASE_REPO.format(ver="5.10")
-        url = base_url.format(base=base, name=name)
+@connection
+def pull(connection, name):
+    if "manageiq" in name:
+        stream = ver = "upstream"
     else:
-        click.echo("Provide proper Image name, use 'miqbox images -r'")
+        stream = "downstream"
+        if "5.10" in name:
+            ver = "5.10"
+        elif "5.9" in name:
+            ver = "5.9"
+        elif "5.8" in name:
+            ver = "5.8"
+
+    base_repo = connection.cfg["repository"].get(stream)
+    if stream == "upstream":
+        url = "{base_repo}/{name}".format(base_repo=base_repo, name=name)
+    else:
+        url = "{base_repo}/builds/cfme/{ver}/stable/{name}".format(base_repo=base_repo, ver=ver,
+                                                             name=name)
+
     if url:
-        if name not in os.listdir(IMG_DIR):
+        img_dir = connection.cfg.get("local_image")
+        if name not in os.listdir(img_dir):
             download_img(url=url)
         else:
             click.echo("{img} already available".format(img=name))
@@ -307,9 +383,11 @@ def pull(name, url=None):
 
 @cli.command(help="Remove downloaded Image")
 @click.option("-n", "--name", prompt="Image Name")
-def rmi(name):
-    if name in os.listdir(IMG_DIR):
-        os.system("rm -rf {img_dir}/{name}".format(img_dir=IMG_DIR, name=name))
+@connection
+def rmi(connection, name):
+    img_dir = connection.cfg.get("local_image")
+    if name in os.listdir(img_dir):
+        os.system("rm -rf {img_dir}/{name}".format(img_dir=img_dir, name=name))
     else:
         click.echo("{img} not available".format(img=name))
 
@@ -321,12 +399,15 @@ def rmi(name):
 @click.option("--db_space", default=8, prompt="Database size in GiB")
 @connection
 def create(connection, name, image, memory, db_space, db=None):
+    img_dir = connection.cfg.get("local_image")
+    libvirt_dir = connection.cfg.get("libvirt_image")
     db_disk_name = "{app_name}-db".format(app_name=name)
-    base_img = "{name}.qcow2".format(name=name)
-    if image in os.listdir(IMG_DIR):
+    base_img = "{name}.{ext}".format(name=name, ext=os.path.splitext(image)[-1])
+
+    if image in os.listdir(img_dir):
         os.system(
-            "sudo cp {img_dir}/{img} /var/lib/libvirt/images/{name}".format(
-                img_dir=IMG_DIR, img=image, name=base_img
+            "sudo cp {img_dir}/{img} {lib_dir}/{name}".format(
+                img_dir=img_dir, img=image, lib_dir=libvirt_dir, name=base_img
             )
         )
     else:
