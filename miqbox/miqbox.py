@@ -1,5 +1,4 @@
 import os
-import time
 import xml.etree.ElementTree as ET
 
 import click
@@ -48,13 +47,14 @@ def cli(connection):
 
     try:
         connection.pool = connection.conn.storagePoolLookupByName(storage)
-    except Exception as e:
+    except Exception:
         click.echo("Failed to open storage pool {name}".format(name=storage))
         exit(1)
 
 
 class Configuration(object):
     """Configure miqbox"""
+
     def __init__(self):
         self.conf_file = "{home}/.config/miqbox/conf.yml".format(home=home)
         dir_path = os.path.dirname(self.conf_file)
@@ -64,9 +64,7 @@ class Configuration(object):
 
         if not os.path.isfile(self.conf_file):
             raw_cfg = {
-                'repository': {
-                    'upstream': 'http://releases.manageiq.org',
-                    'downstream': 'None'},
+                "repository": {"upstream": "http://releases.manageiq.org", "downstream": "None"},
                 "local_image": "{home}/.miqbox".format(home=home),
                 "libvirt_image": "/var/lib/libvirt/images",
                 "hypervisor_driver": "qemu:///system",
@@ -75,11 +73,11 @@ class Configuration(object):
             self.write(raw_cfg)
 
     def read(self):
-        with open(self.conf_file, 'r') as ymlfile:
+        with open(self.conf_file, "r") as ymlfile:
             return yaml.load(ymlfile)
 
     def write(self, cfg):
-        with open(self.conf_file, 'w') as ymlfile:
+        with open(self.conf_file, "w") as ymlfile:
             return yaml.dump(cfg, ymlfile, default_flow_style=False)
 
 
@@ -253,14 +251,19 @@ def config():
     conf = Configuration()
     cfg = conf.read()
 
-    cfg["hypervisor_driver"] = click.prompt("Hypervisor drivers url", default=cfg.get("hypervisor_driver"))
-    cfg["storage_pool"]= click.prompt("Storage Pool Name", default=cfg.get("storage_pool"))
+    cfg["hypervisor_driver"] = click.prompt(
+        "Hypervisor drivers url", default=cfg.get("hypervisor_driver")
+    )
+    cfg["storage_pool"] = click.prompt("Storage Pool Name", default=cfg.get("storage_pool"))
     cfg["libvirt_image"] = click.prompt("Libvirt Image Location", default=cfg.get("libvirt_image"))
     cfg["local_image"] = click.prompt("Local Image Location", default=cfg.get("local_image"))
-    cfg["repository"]["upstream"] = click.prompt("Upstream Repository",
-                                                   default=cfg["repository"]["upstream"])
+    cfg["repository"]["upstream"] = click.prompt(
+        "Upstream Repository", default=cfg["repository"]["upstream"]
+    )
     if click.confirm("Do you want to set downstream repository?"):
-        cfg["repository"]["downstream"] = click.prompt("Downstream Repository", default=cfg["repository"]["downstream"])
+        cfg["repository"]["downstream"] = click.prompt(
+            "Downstream Repository", default=cfg["repository"]["downstream"]
+        )
 
     conf.write(cfg=cfg)
     click.echo("Configuration saved successfully...")
@@ -363,8 +366,9 @@ def images(connection, local, remote):
     if not os.path.exists(img_dir):
         os.makedirs(img_dir)
 
-    stream = click.prompt("stream:", default="downstream", type=click.Choice(["downstream",
-                                                                   "upstream"]))
+    stream = click.prompt(
+        "stream:", default="downstream", type=click.Choice(["downstream", "upstream"])
+    )
     base_repo = connection.cfg["repository"].get(stream)
     if stream == "downstream":
         ver = click.prompt("Version:", default="5.10", type=click.Choice(["5.8", "5.9", "5.10"]))
@@ -407,8 +411,9 @@ def pull(connection, name):
     if stream == "upstream":
         url = "{base_repo}/{name}".format(base_repo=base_repo, name=name)
     else:
-        url = "{base_repo}/builds/cfme/{ver}/stable/{name}".format(base_repo=base_repo, ver=ver,
-                                                             name=name)
+        url = "{base_repo}/builds/cfme/{ver}/stable/{name}".format(
+            base_repo=base_repo, ver=ver, name=name
+        )
 
     if url:
         img_dir = connection.cfg.get("local_image")
@@ -423,7 +428,9 @@ def pull(connection, name):
 @connection
 def rmi(connection, name):
     img_dir = connection.cfg.get("local_image")
-    import ipdb; ipdb.set_trace()
+    import ipdb
+
+    ipdb.set_trace()
     if name in os.listdir(img_dir):
         os.system("rm -rf '{img_dir}/{name}'".format(img_dir=img_dir, name=name))
     else:
@@ -446,9 +453,7 @@ def create(connection, name, image, memory, db_size, db=None):
     if image in os.listdir(image_dir):
         source = os.path.join(image_dir, image)
         destination = os.path.join(libvirt_dir, base_disk_name)
-        os.system(
-            "sudo cp {source} {destination}".format(source=source, destination=destination)
-        )
+        os.system("sudo cp {source} {destination}".format(source=source, destination=destination))
         click.echo("Base appliance disk created...")
     else:
         click.echo("Image '{img}' not available...".format(img=image))
