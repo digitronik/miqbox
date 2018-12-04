@@ -213,7 +213,7 @@ def create_disk(connection, name, size, format="qcow2"):
 
     Return: storage pool
     """
-    with open("miqbox/miqbox/xmls/storage.xml", "r") as f:
+    with open("miqbox/xmls/storage.xml", "r") as f:
         stgvol_xml_raw = f.read()
 
     stgvol_xml = stgvol_xml_raw.format(name=name, size=size, format=format)
@@ -236,7 +236,7 @@ def create_appliance(connection, name, base_img, db_img, memory):
      Return: storage pool
      """
 
-    with open("miqbox/miqbox/xmls/appliance.xml", "r") as f:
+    with open("miqbox/xmls/appliance.xml", "r") as f:
         app_xml_raw = f.read()
     app_xml = app_xml_raw.format(name=name, base_img=base_img, db_img=db_img, memory=str(memory))
     dom = connection.conn.defineXML(app_xml)
