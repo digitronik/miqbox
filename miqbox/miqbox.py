@@ -54,18 +54,21 @@ def cli(connection):
 
 
 class Configuration(object):
+    """Configure miqbox"""
     def __init__(self):
         self.conf_file = "{home}/.config/miqbox/conf.yml".format(home=home)
         dir_path = os.path.dirname(self.conf_file)
+
         if not os.path.isdir(dir_path):
             os.makedirs(dir_path)
+
         if not os.path.isfile(self.conf_file):
             raw_cfg = {
                 'repository': {
-                    'upstream': 'http://releases.manageiq.org/',
+                    'upstream': 'http://releases.manageiq.org',
                     'downstream': 'None'},
                 "local_image": "{home}/.miqbox".format(home=home),
-                "libvirt_image": "/var/lib/libvirt/images/",
+                "libvirt_image": "/var/lib/libvirt/images",
                 "hypervisor_driver": "qemu:///system",
                 "storage_pool": "default",
             }
@@ -158,11 +161,16 @@ def get_vm_info(domain):
 
 @connection
 def download_img(connection, url):
+    """Download image with click progress bar
+
+    Args:
+        url: cloud image url
+    """
     img_dir = connection.cfg.get("local_image")
     if not os.path.exists(img_dir):
         os.makedirs(img_dir)
 
-    img_name = os.path.splitext(url)[-1]
+    img_name = url.split("/")[-1]
     click.echo("Download request for: {img_name}".format(img_name=img_name))
     r = requests.get(url, stream=True)
 
@@ -172,6 +180,7 @@ def download_img(connection, url):
 
     total_size = int(r.headers.get("Content-Length"))
     local_img_path = "{dir}/{img}".format(dir=img_dir, img=img_name)
+
     with click.progressbar(r.iter_content(1024), length=total_size) as bar, open(
         local_img_path, "wb"
     ) as file:
@@ -181,6 +190,13 @@ def download_img(connection, url):
 
 
 def get_repo_img(url, extension="qcow2", ssl_verify=False):
+    """collect available cloud remote images
+
+    Args:
+        url: cloud image url
+        extension: image extension
+        ssl_verify: bool
+    """
     page = requests.get(url, verify=ssl_verify).text
     soup = BeautifulSoup(page, "html.parser")
     return [
@@ -190,7 +206,16 @@ def get_repo_img(url, extension="qcow2", ssl_verify=False):
 
 @connection
 def create_disk(connection, name, size, format="qcow2"):
-    with open("xmls/storage.xml", "r") as f:
+    """Create storage disk
+
+    Args:
+        name: disk name
+        size: disk size
+        format: disk image format
+
+    Return: storage pool
+    """
+    with open("miqbox/miqbox/xmls/storage.xml", "r") as f:
         stgvol_xml_raw = f.read()
 
     stgvol_xml = stgvol_xml_raw.format(name=name, size=size, format=format)
@@ -203,14 +228,24 @@ def create_disk(connection, name, size, format="qcow2"):
 
 @connection
 def create_appliance(connection, name, base_img, db_img, memory):
-    with open("xmls/appliance.xml", "r") as f:
+    """Create appliance domain
+
+     Args:
+         name: appliance name
+         base_img: appliance image name
+         db_img: database image name
+         memory: appliance memory
+     Return: storage pool
+     """
+
+    with open("miqbox/miqbox/xmls/appliance.xml", "r") as f:
         app_xml_raw = f.read()
     app_xml = app_xml_raw.format(name=name, base_img=base_img, db_img=db_img, memory=str(memory))
     dom = connection.conn.defineXML(app_xml)
     if dom:
         return dom
     else:
-        return False
+        return None
 
 
 @cli.command(help="Configure miqbox")
@@ -222,11 +257,13 @@ def config():
     cfg["storage_pool"]= click.prompt("Storage Pool Name", default=cfg.get("storage_pool"))
     cfg["libvirt_image"] = click.prompt("Libvirt Image Location", default=cfg.get("libvirt_image"))
     cfg["local_image"] = click.prompt("Local Image Location", default=cfg.get("local_image"))
-
+    cfg["repository"]["upstream"] = click.prompt("Upstream Repository",
+                                                   default=cfg["repository"]["upstream"])
     if click.confirm("Do you want to set downstream repository?"):
         cfg["repository"]["downstream"] = click.prompt("Downstream Repository", default=cfg["repository"]["downstream"])
 
     conf.write(cfg=cfg)
+    click.echo("Configuration saved successfully...")
 
 
 @cli.command(help="Appliance Status")
@@ -347,8 +384,8 @@ def images(connection, local, remote):
         else:
             url = "{base_repo}/builds/cfme/{ver}/stable".format(base_repo=base_repo, ver=ver)
 
-    for img in get_repo_img(url=url, extension=extension):
-        click.echo(img)
+        for img in get_repo_img(url=url, extension=extension):
+            click.echo(img)
 
 
 @cli.command(help="Download Image")
@@ -386,57 +423,50 @@ def pull(connection, name):
 @connection
 def rmi(connection, name):
     img_dir = connection.cfg.get("local_image")
+    import ipdb; ipdb.set_trace()
     if name in os.listdir(img_dir):
-        os.system("rm -rf {img_dir}/{name}".format(img_dir=img_dir, name=name))
+        os.system("rm -rf '{img_dir}/{name}'".format(img_dir=img_dir, name=name))
     else:
         click.echo("{img} not available".format(img=name))
 
 
 @cli.command(help="Create Appliance")
-@click.option("--name", prompt="Appliance name please")
-@click.option("--image", prompt="Image name please")
+@click.option("--name", prompt="Appliance name")
+@click.option("--image", prompt="Image name")
 @click.option("--memory", default=4, prompt="Memory in GiB")
-@click.option("--db_space", default=8, prompt="Database size in GiB")
+@click.option("--db_size", default=8, prompt="Database size in GiB")
 @connection
-def create(connection, name, image, memory, db_space, db=None):
-    img_dir = connection.cfg.get("local_image")
+def create(connection, name, image, memory, db_size, db=None):
+    image_dir = connection.cfg.get("local_image")
     libvirt_dir = connection.cfg.get("libvirt_image")
     db_disk_name = "{app_name}-db".format(app_name=name)
-    base_img = "{name}.{ext}".format(name=name, ext=os.path.splitext(image)[-1])
+    extension = image.split(".")[-1]
+    base_disk_name = "{name}.{ext}".format(name=name, ext=extension)
 
-    if image in os.listdir(img_dir):
+    if image in os.listdir(image_dir):
+        source = os.path.join(image_dir, image)
+        destination = os.path.join(libvirt_dir, base_disk_name)
         os.system(
-            "sudo cp {img_dir}/{img} {lib_dir}/{name}".format(
-                img_dir=img_dir, img=image, lib_dir=libvirt_dir, name=base_img
-            )
+            "sudo cp {source} {destination}".format(source=source, destination=destination)
         )
+        click.echo("Base appliance disk created...")
     else:
         click.echo("Image '{img}' not available...".format(img=image))
-        return 0
-
-    click.echo("Creating Database disk...")
+        exit(0)
 
     try:
-        db = create_disk(name=db_disk_name, size=db_space)
-        click.echo("'{}' created successfully".format(db_disk_name))
+        db = create_disk(name=db_disk_name, size=db_size, format=extension)
+        click.echo("Database disk created...")
     except Exception:
-        click.echo("Database disk creation fails")
+        click.echo("Database disk creation fails...")
+        os.system("sudo rm -rf {dest}".format(dest=destination))
+        exit(0)
 
     if db:
-        click.echo("Creating appliance")
-        dom = create_appliance(name=name, base_img=base_img, db_img=db.name(), memory=memory)
+        dom = create_appliance(name=name, base_img=base_disk_name, db_img=db.name(), memory=memory)
         if dom:
             dom.create()
             click.echo("Appliance {name} created successfully...".format(name=dom.name()))
         else:
-            click.echo("Fail to create appliance...")
-
-    if click.confirm("Configure appliance?"):
-        click.echo("Waiting for getting  hostname....")
-
-        timeout = time.time() + 300
-        while True:
-            host = _vm_info(dom)["hostname"]
-            if "--" not in host or time.time() > timeout:
-                break
-        config(host=host)
+            click.echo("Fails to create {name} appliance...".format(name=dom.name()))
+            exit(0)
