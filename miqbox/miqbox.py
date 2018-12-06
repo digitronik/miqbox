@@ -1,4 +1,5 @@
 import os
+import time
 import xml.etree.ElementTree as ET
 
 import click
@@ -333,12 +334,25 @@ def stop(connection, name):
 @connection
 def kill(connection, name):
     try:
-        id = int(name)
-        dom = connection.conn.lookupByID(id)
-    except ValueError:
-        dom = connection.conn.lookupByName(name)
+        try:
+            id = int(name)
+            dom = connection.conn.lookupByID(id)
+        except ValueError:
+            dom = connection.conn.lookupByName(name)
+    except Exception:
+        exit(1)
 
     if dom:
+        if dom.isActive() > 0:
+            dom.shutdown()
+            timeout = time.time() + 180
+            while True:
+                if dom.isActive() == 0:
+                    break
+                if time.time() > timeout:
+                    click.echo("Fail to shutdown appliance")
+                    exit(1)
+
         storage = connection.cfg.get("storage_pool")
         try:
             pool = connection.conn.storagePoolLookupByName(storage)
