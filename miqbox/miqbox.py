@@ -24,7 +24,6 @@ home = os.environ["HOME"]
 class Connection(object):
     def __init__(self):
         self.conn = None
-        self.pool = None
         self.cfg = None
 
 
@@ -37,18 +36,11 @@ def cli(connection):
     conf = Configuration()
     connection.cfg = conf.read()
     url = connection.cfg.get("hypervisor_driver")
-    storage = connection.cfg.get("storage_pool")
 
     try:
         connection.conn = libvirt.open(url)
     except Exception:
         click.echo("Failed to open connection to {url}".format(url=url))
-        exit(1)
-
-    try:
-        connection.pool = connection.conn.storagePoolLookupByName(storage)
-    except Exception:
-        click.echo("Failed to open storage pool {name}".format(name=storage))
         exit(1)
 
 
@@ -217,7 +209,12 @@ def create_disk(connection, name, size, format="qcow2"):
         stgvol_xml_raw = f.read()
 
     stgvol_xml = stgvol_xml_raw.format(name=name, size=size, format=format)
-    pool = connection.conn.storagePoolLookupByName("default")
+    storage = connection.cfg.get("storage_pool")
+    try:
+        pool = connection.conn.storagePoolLookupByName(storage)
+    except Exception:
+        click.echo("{storage} storage pool not found need to configure proper pool name".format(storage))
+        exit(1)
     try:
         return pool.createXML(stgvol_xml, 0)
     except Exception:
@@ -342,7 +339,15 @@ def kill(connection, name):
         dom = connection.conn.lookupByName(name)
 
     if dom:
-        storage_db = {item.name(): item for item in connection.pool.listAllVolumes()}
+        storage = connection.cfg.get("storage_pool")
+        try:
+            pool = connection.conn.storagePoolLookupByName(storage)
+        except Exception:
+            click.echo("{storage} storage pool not found need to configure proper pool name".format(
+                storage))
+            exit(1)
+
+        storage_db = {item.name(): item for item in pool.listAllVolumes()}
         raw_xml = dom.XMLDesc(0)
         root = ET.fromstring(raw_xml)
         for disk in root.findall("devices/disk"):
@@ -428,9 +433,7 @@ def pull(connection, name):
 @connection
 def rmi(connection, name):
     img_dir = connection.cfg.get("local_image")
-    import ipdb
 
-    ipdb.set_trace()
     if name in os.listdir(img_dir):
         os.system("rm -rf '{img_dir}/{name}'".format(img_dir=img_dir, name=name))
     else:
