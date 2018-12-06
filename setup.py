@@ -4,7 +4,8 @@ from setuptools import setup, find_packages
 with open("README.md") as readme_file:
     readme = readme_file.read()
 
-install_requirements = ["Click>=7.0", "libvirt-python>=4.8", "requests>=2.20", "bs4>=0.0.1"]
+install_requirements = ["Click>=5.0", "libvirt-python>=4.8", "requests>=2.20", "bs4>=0.0.1",
+                        "pyaml>=18.10"]
 
 setup_requirements = ["setuptools_scm"]
 
@@ -26,7 +27,7 @@ setup(
     },
     install_requires=install_requirements,
     long_description=readme,
-    # include_package_data=True,
+    include_package_data=True,
     setup_requires=setup_requirements,
     keywords='miqbox',
     name='miqbox',
