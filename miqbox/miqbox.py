@@ -34,6 +34,8 @@ connection = click.make_pass_decorator(Connection, ensure=True)
 @click.group()
 @connection
 def cli(connection):
+    """Command line application entry point"""
+
     conf = Configuration()
     connection.cfg = conf.read()
     url = connection.cfg.get("hypervisor_driver")
@@ -246,6 +248,8 @@ def create_appliance(connection, name, base_img, db_img, memory):
 
 @cli.command(help="Configure miqbox")
 def config():
+    """Configure Miqbox"""
+
     conf = Configuration()
     cfg = conf.read()
 
@@ -272,6 +276,17 @@ def config():
 @click.option("-r", "--running", is_flag=True, help="All Running Appliances")
 @click.option("-s", "--stop", is_flag=True, help="All Stopped Appliances")
 def status(all, running, stop):
+    """Get appliances status
+
+    Args:
+        all: default will return all appliances status
+        running: will return all running appliances status
+        stop: will return all stop appliances status
+
+    Returns:
+        echo status on cli
+    """
+
     if running:
         status = "running"
     elif stop:
@@ -295,6 +310,12 @@ def status(all, running, stop):
 @click.argument("name", type=click.STRING)
 @connection
 def start(connection, name):
+    """ Start/ Invoke appliance
+
+    Args:
+        name: (`str`) appliance name
+    """
+
     try:
         domain = connection.conn.lookupByName(name)
     except Exception:
@@ -314,6 +335,12 @@ def start(connection, name):
 @click.argument("name")
 @connection
 def stop(connection, name):
+    """Stop running appliance
+
+    Args:
+        name: (`str`) appliance name
+    """
+
     try:
         id = int(name)
         dom = connection.conn.lookupByID(id)
@@ -333,6 +360,12 @@ def stop(connection, name):
 @click.argument("name")
 @connection
 def kill(connection, name):
+    """Kill appliance
+
+    Args:
+        name: (`str`) appliance name
+    """
+
     try:
         try:
             id = int(name)
@@ -385,6 +418,13 @@ def kill(connection, name):
 @click.option("-r", "--remote", is_flag=True, help="All available remote images")
 @connection
 def images(connection, local, remote):
+    """Get local or remote available image
+
+    Args:
+        local: default, will give local images
+        remote: will return remote repository available images
+    """
+
     img_dir = connection.cfg.get("local_image")
     if not os.path.exists(img_dir):
         os.makedirs(img_dir)
@@ -418,6 +458,13 @@ def images(connection, local, remote):
 @click.argument("image_name")
 @connection
 def pull(connection, image_name):
+    """Pull image available on remote repository
+    Note: Image name can found by images -r command
+
+    Args:
+        image_name: (`str`) image name
+    """
+
     if "manageiq" in image_name:
         stream = ver = "upstream"
     else:
@@ -449,6 +496,11 @@ def pull(connection, image_name):
 @click.argument("image_name")
 @connection
 def rmi(connection, image_name):
+    """Remove local image
+
+    Args:
+        image_name: local image name
+    """
     img_dir = connection.cfg.get("local_image")
 
     if image_name in os.listdir(img_dir):
@@ -464,6 +516,14 @@ def rmi(connection, image_name):
 @click.option("--db_size", default=8, prompt="Database size in GiB")
 @connection
 def create(connection, name, image, memory, db_size, db=None):
+    """Create appliance
+
+    Args:
+        name: Name of appliance
+        image: Base image for appliance creation
+        memory: Memory allocated to appliance
+        db_size: Database size
+    """
     image_dir = connection.cfg.get("local_image")
     libvirt_dir = connection.cfg.get("libvirt_image")
     db_disk_name = "{app_name}-db".format(app_name=name)
