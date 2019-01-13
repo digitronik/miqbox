@@ -272,12 +272,12 @@ def config():
 @click.option("-r", "--running", is_flag=True, help="All Running Appliances")
 @click.option("-s", "--stop", is_flag=True, help="All Stopped Appliances")
 def status(all, running, stop):
-    if all:
-        status = None
-    elif running:
+    if running:
         status = "running"
     elif stop:
         status = "shut off"
+    else:
+        status = None
 
     data = [get_vm_info(domain) for domain in get_appliances(status=status).values()]
 
@@ -292,7 +292,7 @@ def status(all, running, stop):
 
 
 @cli.command(help="Start Appliance")
-@click.option("-n", "--name", prompt="Appliance name please", help="Appliance Name")
+@click.argument("name", type=click.STRING)
 @connection
 def start(connection, name):
     try:
@@ -311,7 +311,7 @@ def start(connection, name):
 
 
 @cli.command(help="Stop Appliance")
-@click.option("-n", "--name", default=None, prompt="Appliance Name|Id", help="Appliance Name")
+@click.argument("name")
 @connection
 def stop(connection, name):
     try:
@@ -330,7 +330,7 @@ def stop(connection, name):
 
 
 @cli.command(help="Kill Appliance")
-@click.option("-n", "--name", default=None, prompt="Appliance Name please", help="Appliance Name")
+@click.argument("name")
 @connection
 def kill(connection, name):
     try:
@@ -364,13 +364,17 @@ def kill(connection, name):
         storage_db = {item.name(): item for item in pool.listAllVolumes()}
         raw_xml = dom.XMLDesc(0)
         root = ET.fromstring(raw_xml)
-        for disk in root.findall("devices/disk"):
+        disks = root.findall("devices/disk")
+        for disk in disks:
             source = disk.find("source").get("file")
-            file = source.split("/")[-1]
-            if file in storage_db.keys():
-                storage = storage_db[file]
+            file = os.path.basename(source)
+            storage = storage_db.get(file, None)
+            if storage:
                 storage.delete()
-                click.echo("Deleted disk '{source}'...".format(source=file))
+                click.echo("Disk '{source} removed'...".format(source=file))
+            else:
+                os.system("sudo rm -rf {f}".format(f=file))
+                click.echo("Disk '{source} deleted'...".format(source=file))
         dom.undefine()
     else:
         click.echo("Please select proper Name or Id of appliance")
@@ -396,11 +400,6 @@ def images(connection, local, remote):
         ver = "manageiq"
         extension = "qc2"
 
-    if local:
-        for img in os.listdir(img_dir):
-            if ver in img:
-                click.echo(img)
-
     if remote:
         if stream == "upstream":
             url = base_repo
@@ -409,49 +408,53 @@ def images(connection, local, remote):
 
         for img in get_repo_img(url=url, extension=extension):
             click.echo(img)
+    else:
+        for img in os.listdir(img_dir):
+            if ver in img:
+                click.echo(img)
 
 
 @cli.command(help="Download Image")
-@click.option("-n", "--name", prompt="Remote Image Name")
+@click.argument("image_name")
 @connection
-def pull(connection, name):
-    if "manageiq" in name:
+def pull(connection, image_name):
+    if "manageiq" in image_name:
         stream = ver = "upstream"
     else:
-        stream = "downstream"
-        if "5.10" in name:
+        if "5.10" in image_name:
             ver = "5.10"
-        elif "5.9" in name:
+        elif "5.9" in image_name:
             ver = "5.9"
-        elif "5.8" in name:
+        elif "5.8" in image_name:
             ver = "5.8"
+        stream = "downstream"
 
     base_repo = connection.cfg["repository"].get(stream)
     if stream == "upstream":
-        url = "{base_repo}/{name}".format(base_repo=base_repo, name=name)
+        url = "{base_repo}/{name}".format(base_repo=base_repo, name=image_name)
     else:
         url = "{base_repo}/builds/cfme/{ver}/stable/{name}".format(
-            base_repo=base_repo, ver=ver, name=name
+            base_repo=base_repo, ver=ver, name=image_name
         )
 
     if url:
         img_dir = connection.cfg.get("local_image")
-        if name not in os.listdir(img_dir):
+        if image_name not in os.listdir(img_dir):
             download_img(url=url)
         else:
-            click.echo("{img} already available".format(img=name))
+            click.echo("{img} already available".format(img=image_name))
 
 
-@cli.command(help="Remove downloaded Image")
-@click.option("-n", "--name", prompt="Image Name")
+@cli.command(help="Remove local Image")
+@click.argument("image_name")
 @connection
-def rmi(connection, name):
+def rmi(connection, image_name):
     img_dir = connection.cfg.get("local_image")
 
-    if name in os.listdir(img_dir):
-        os.system("rm -rf '{img_dir}/{name}'".format(img_dir=img_dir, name=name))
+    if image_name in os.listdir(img_dir):
+        os.system("rm -rf '{img_dir}/{name}'".format(img_dir=img_dir, name=image_name))
     else:
-        click.echo("{img} not available".format(img=name))
+        click.echo("{img} not available".format(img=image_name))
 
 
 @cli.command(help="Create Appliance")
