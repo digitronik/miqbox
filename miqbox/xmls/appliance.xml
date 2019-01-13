@@ -19,7 +19,7 @@
         <model fallback='forbid'>Skylake-Client</model>
         <vendor>Intel</vendor>
         <feature policy='require' name='ss'/>
-        <feature policy='require' name='vmx'/>
+        <!--<feature policy='require' name='vmx'/>-->
         <feature policy='require' name='hypervisor'/>
         <feature policy='require' name='tsc_adjust'/>
         <feature policy='require' name='clflushopt'/>
