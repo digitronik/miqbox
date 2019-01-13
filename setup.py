@@ -1,12 +1,12 @@
 from setuptools import setup, find_packages
 
 
-with open("README.md", encoding="utf8") as readme_file:
+with open("README.md") as readme_file:
     readme = readme_file.read()
 
 install_requirements = [
     "Click>=5.0",
-    "libvirt-python>=4.8",
+    "libvirt-python>=3.0",
     "requests>=2.20",
     "bs4>=0.0.1",
     "pyaml>=18.10",
