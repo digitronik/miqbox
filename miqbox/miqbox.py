@@ -8,6 +8,7 @@ import requests
 import yaml
 from bs4 import BeautifulSoup
 
+from ap import ApplianceConsole
 
 VM_STATE = {
     libvirt.VIR_DOMAIN_RUNNING: "running",
@@ -555,3 +556,20 @@ def create(connection, name, image, memory, db_size, db=None):
         else:
             click.echo("Fails to create {name} appliance...".format(name=dom.name()))
             exit(0)
+
+    conf = click.prompt(
+        "Do you want to setup internal database?", default="y", type=click.Choice(["y", "n"])
+    )
+
+    if conf == "y":
+        start_time = time.time()
+        while time.time() < start_time + 30:
+            hostname = get_vm_info(dom).get("hostname", None)
+            if hostname.count(".") == 3:
+                break
+        else:
+            click.echo("Unable to get hostname for appliance... try latter")
+
+        ap = ApplianceConsole(hostname)
+        if ap.connect(timeout=60):
+            ap.run_commands(("ap", "", "7", "1", "1", "1", "N", "0", "smartvm", "smartvm", ""))
