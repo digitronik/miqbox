@@ -51,6 +51,8 @@ class ApplianceConsole(object):
         if not channel:
             channel = self.client.invoke_shell()
         for command in commands:
+            if command == "w":
+                timeout = 40
             channel.settimeout(timeout)
             if autoreturn:
                 command = (command + "\n")

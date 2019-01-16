@@ -405,17 +405,16 @@ def kill(connection, name):
             storage = storage_db.get(file, None)
             if storage:
                 storage.delete()
+            if os.path.isfile(source):
+                os.system("sudo rm -rf {f}".format(f=source))
                 click.echo("Disk '{source} removed'...".format(source=file))
-            else:
-                os.system("sudo rm -rf {f}".format(f=file))
-                click.echo("Disk '{source} deleted'...".format(source=file))
         dom.undefine()
     else:
         click.echo("Please select proper Name or Id of appliance")
 
 
 @cli.command()
-@click.option("-l", "--local", is_flag=True, help="All available images")
+@click.option("-l", "--local", is_flag=True, help="All available local images")
 @click.option("-r", "--remote", is_flag=True, help="All available remote images")
 @connection
 def images(connection, local, remote):
@@ -430,18 +429,19 @@ def images(connection, local, remote):
     if not os.path.exists(img_dir):
         os.makedirs(img_dir)
 
-    stream = click.prompt(
-        "stream:", default="downstream", type=click.Choice(["downstream", "upstream"])
-    )
-    base_repo = connection.cfg["repository"].get(stream)
-    if stream == "downstream":
-        ver = click.prompt("Version:", default="5.10", type=click.Choice(["5.8", "5.9", "5.10"]))
-        extension = "qcow2"
-    else:
-        ver = "manageiq"
-        extension = "qc2"
-
     if remote:
+        stream = click.prompt(
+            "stream:", default="downstream", type=click.Choice(["downstream", "upstream"])
+        )
+        base_repo = connection.cfg["repository"].get(stream)
+        if stream == "downstream":
+            ver = click.prompt("Version:", default="5.10",
+                               type=click.Choice(["5.8", "5.9", "5.10"]))
+            extension = "qcow2"
+        else:
+            ver = "manageiq"
+            extension = "qc2"
+
         if stream == "upstream":
             url = base_repo
         else:
@@ -451,7 +451,6 @@ def images(connection, local, remote):
             click.echo(img)
     else:
         for img in os.listdir(img_dir):
-            if ver in img:
                 click.echo(img)
 
 
@@ -557,19 +556,31 @@ def create(connection, name, image, memory, db_size, db=None):
             click.echo("Fails to create {name} appliance...".format(name=dom.name()))
             exit(0)
 
-    conf = click.prompt(
-        "Do you want to setup internal database?", default="y", type=click.Choice(["y", "n"])
-    )
+    if "5.9" in image:
+        ver = 5.9
+        db_conf = "5"
+    elif "5.10" in image:
+        ver = 5.10
+        db_conf = "7"
+    else:
+        ver = "upstream"
 
-    if conf == "y":
-        start_time = time.time()
-        while time.time() < start_time + 30:
-            hostname = get_vm_info(dom).get("hostname", None)
-            if hostname.count(".") == 3:
-                break
-        else:
-            click.echo("Unable to get hostname for appliance... try latter")
+    if ver != "upstream":
+        # database configuration only need for downstream
+        conf = click.prompt(
+            "Do you want to setup internal database?", default="y", type=click.Choice(["y", "n"])
+        )
 
-        ap = ApplianceConsole(hostname)
-        if ap.connect(timeout=60):
-            ap.run_commands(("ap", "", "7", "1", "1", "1", "N", "0", "smartvm", "smartvm", ""))
+        if conf == "y":
+            start_time = time.time()
+            while time.time() < start_time + 30:
+                hostname = get_vm_info(dom).get("hostname", None)
+                if hostname.count(".") == 3:
+                    break
+            else:
+                click.echo("Unable to get hostname for appliance... try latter")
+
+            ap = ApplianceConsole(hostname)
+            if ap.connect(timeout=60):
+                ap.run_commands(("ap", "", db_conf, "1", "1", "1", "N", "0", "smartvm", "smartvm", "w"))
+                click.echo("Appliance database configured successfully...")
