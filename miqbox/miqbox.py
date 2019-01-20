@@ -217,7 +217,9 @@ def create_disk(connection, name, size, format="qcow2"):
     try:
         pool = connection.conn.storagePoolLookupByName(storage)
     except Exception:
-        click.echo("{storage} storage pool not found need to configure proper pool name".format(storage))
+        click.echo(
+            "{storage} storage pool not found need to configure proper pool name".format(storage)
+        )
         exit(1)
     try:
         return pool.createXML(stgvol_xml, 0)
@@ -391,8 +393,11 @@ def kill(connection, name):
         try:
             pool = connection.conn.storagePoolLookupByName(storage)
         except Exception:
-            click.echo("{storage} storage pool not found need to configure proper pool name".format(
-                storage))
+            click.echo(
+                "{storage} storage pool not found need to configure proper pool name".format(
+                    storage
+                )
+            )
             exit(1)
 
         storage_db = {item.name(): item for item in pool.listAllVolumes()}
@@ -435,8 +440,9 @@ def images(connection, local, remote):
         )
         base_repo = connection.cfg["repository"].get(stream)
         if stream == "downstream":
-            ver = click.prompt("Version:", default="5.10",
-                               type=click.Choice(["5.8", "5.9", "5.10"]))
+            ver = click.prompt(
+                "Version:", default="5.10", type=click.Choice(["5.8", "5.9", "5.10"])
+            )
             extension = "qcow2"
         else:
             ver = "manageiq"
@@ -451,7 +457,7 @@ def images(connection, local, remote):
             click.echo(img)
     else:
         for img in os.listdir(img_dir):
-                click.echo(img)
+            click.echo(img)
 
 
 @cli.command(help="Download Image")
@@ -557,15 +563,13 @@ def create(connection, name, image, memory, db_size, db=None):
             exit(0)
 
     if "5.9" in image:
-        ver = 5.9
-        db_conf = "5"
+        stream = 5.9
     elif "5.10" in image:
-        ver = 5.10
-        db_conf = "7"
+        stream = 5.10
     else:
-        ver = "upstream"
+        stream = "upstream"
 
-    if ver != "upstream":
+    if stream != "upstream":
         # database configuration only need for downstream
         conf = click.prompt(
             "Do you want to setup internal database?", default="y", type=click.Choice(["y", "n"])
@@ -579,8 +583,9 @@ def create(connection, name, image, memory, db_size, db=None):
                     break
             else:
                 click.echo("Unable to get hostname for appliance... try latter")
+                exit(0)
 
-            ap = ApplianceConsole(hostname)
-            if ap.connect(timeout=60):
-                ap.run_commands(("ap", "", db_conf, "1", "1", "1", "N", "0", "smartvm", "smartvm", "w"))
+            ap = ApplianceConsole(hostname=hostname, user="root", password="smartvm")
+            if ap.connect():
+                ap.db_config(ver=stream)
                 click.echo("Appliance database configured successfully...")
