@@ -2,42 +2,50 @@
 <a href="https://github.com/ambv/black"><img alt="Code style: black" src="https://img.shields.io/badge/code%20style-black-000000.svg"></a>
 
 # miqbox
-Spin ManageIQ/CFME Appliance locally
+Spin `ManageIQ/CFME` Appliance locally with `Virtualization`.
 
 **Under progress...**
 
 
-# Dependencies
-You shall need virtualization setup on your system.
+## Prerequisite:
 
-## [Fedora](https://docs.fedoraproject.org/en-US/quick-docs/getting-started-with-virtualization/)
-```shell
-dnf install @virtualization libvirt-devel python-devel python3-devel
-systemctl start libvirtd
-systemctl enable libvirtd
-```
+1. Virtualization:
 
-## [Ubuntu](https://help.ubuntu.com/community/KVM/Installation)
-```shell
-sudo apt-get install qemu-kvm
-```
+      - [Fedora](https://docs.fedoraproject.org/en-US/quick-docs/getting-started-with-virtualization/)
+        ```bash
+        sudo dnf install @virtualization
+        systemctl start libvirtd
+        systemctl enable libvirtd
+        ```
+        If you want optional packages
+        ```bash
+        dnf group install --with-optional virtualization
+        ```
+      - [Ubuntu](https://help.ubuntu.com/community/KVM/Installation)
+        ```bash
+        sudo apt-get install qemu-kvm
+        ```
 
-# Install
+2. Devel Packages:
+
+    ```bash
+    sudo dnf install libvirt-devel python-devel python3-devel
+    ```
+
+## Install:
 - pip
-```shell
-pip install --user miqbox
-```
+    ```bash
+    pip install miqbox --user
+    ```
 
 - source
-```shell
-python setup.py install
-```
+    ```bash
+    python setup.py install --user
+    ```
+Note: For Development install in editable mode.
 
-# Troubleshooting:
+## Troubleshooting:
 - [libvirt: Polkit error](https://fedoraproject.org/wiki/QA:Testcase_Virt_ACLs)
 
-- For Development
-Install in editable mode
 
-
-# Usage
+## Usage:

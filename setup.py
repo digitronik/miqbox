@@ -9,6 +9,7 @@ install_requirements = [
     "libvirt-python>=3.0",
     "requests>=2.20",
     "bs4>=0.0.1",
+    "paramiko>=2.4",
     "pyaml>=18.10",
 ]
 
