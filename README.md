@@ -12,7 +12,7 @@ You shall need virtualization setup on your system.
 
 ## [Fedora](https://docs.fedoraproject.org/en-US/quick-docs/getting-started-with-virtualization/)
 ```shell
-dnf install @virtualization
+dnf install @virtualization libvirt-devel python-devel python3-devel
 systemctl start libvirtd
 systemctl enable libvirtd
 ```
@@ -32,6 +32,9 @@ pip install --user miqbox
 ```shell
 python setup.py install
 ```
+
+# Troubleshooting:
+- [libvirt: Polkit error](https://fedoraproject.org/wiki/QA:Testcase_Virt_ACLs)
 
 - For Development
 Install in editable mode
