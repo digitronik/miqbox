@@ -1,3 +1,39 @@
+# xml formats for libvirt
+
+
+miq_storage_pool = """
+<pool type='dir'>
+  <name>{name}</name>
+  <target>
+    <path>{path}</path>
+      <permissions>
+          <mode>0755</mode>
+          <owner>-1</owner>
+          <group>-1</group>
+      </permissions>
+  </target>
+</pool>
+"""
+
+miq_volume = """
+<volume>
+    <name>{name}.{format}</name>
+    <allocation>0</allocation>
+    <capacity unit="G">{size}</capacity>
+    <target>
+        <format type="qcow2"/>
+        <path>{path}/{name}.{format}</path>
+        <permissions>
+            <owner>107</owner>
+            <group>107</group>
+            <mode>0744</mode>
+            <label>virt_image_t</label>
+        </permissions>
+    </target>
+</volume>
+"""
+
+miq_ap = """
 <domain type='kvm'>
     <name>{name}</name>
     <memory unit='G'>{memory}</memory>
@@ -42,7 +78,7 @@
         <emulator>/usr/bin/qemu-kvm</emulator>
         <disk type='file' device='disk'>
           <driver name='qemu' type='qcow2'/>
-          <source file='/var/lib/libvirt/images/{base_img}'/>
+          <source file='{path}/{base_img}'/>
           <backingStore/>
           <target dev='vda' bus='virtio'/>
           <alias name='virtio-disk0'/>
@@ -50,7 +86,7 @@
         </disk>
         <disk type='file' device='disk'>
           <driver name='qemu' type='qcow2'/>
-          <source file='/var/lib/libvirt/images/{db_img}'/>
+          <source file='{path}/{db_img}'/>
           <backingStore/>
           <target dev='vdb' bus='virtio'/>
           <alias name='virtio-disk1'/>
@@ -84,3 +120,4 @@
         </video>
     </devices>
 </domain>
+"""
