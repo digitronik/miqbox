@@ -1,4 +1,5 @@
 import os
+import sys
 import time
 import xml.etree.ElementTree as ET
 
@@ -9,6 +10,8 @@ import yaml
 from bs4 import BeautifulSoup
 
 from ap import ApplianceConsole
+from miq_xmls import miq_ap, miq_storage_pool, miq_volume
+
 
 VM_STATE = {
     libvirt.VIR_DOMAIN_RUNNING: "running",
@@ -62,9 +65,9 @@ class Configuration(object):
             raw_cfg = {
                 "repository": {"upstream": "http://releases.manageiq.org", "downstream": "None"},
                 "local_image": "{home}/.miqbox".format(home=home),
-                "libvirt_image": "/var/lib/libvirt/images",
+                "libvirt_image": "/var/lib/libvirt/images/miqbox",
                 "hypervisor_driver": "qemu:///system",
-                "storage_pool": "default",
+                "storage_pool": "miqbox",
             }
             self.write(raw_cfg)
 
@@ -73,6 +76,12 @@ class Configuration(object):
             return yaml.load(ymlfile)
 
     def write(self, cfg):
+        if not os.path.isdir(cfg.get("libvirt_image")):
+            os.system("sudo mkdir -p {}".format(cfg.get("libvirt_image")))
+
+        if not os.path.isdir(cfg.get("local_image")):
+            os.mkdir(cfg.get("local_image"))
+
         with open(self.conf_file, "w") as ymlfile:
             return yaml.dump(cfg, ymlfile, default_flow_style=False)
 
@@ -87,6 +96,8 @@ def get_appliances(connection, status=None):
     Returns:
         (`dirt`) all appliances/ appliances are per status
     """
+    conn = connection.conn
+    import ipdb; ipdb.set_trace()
     domains = {domain.name(): domain for domain in connection.conn.listAllDomains()}
 
     if status:
@@ -161,9 +172,6 @@ def download_img(connection, url):
         url: cloud image url
     """
     img_dir = connection.cfg.get("local_image")
-    if not os.path.exists(img_dir):
-        os.makedirs(img_dir)
-
     img_name = url.split("/")[-1]
     click.echo("Download request for: {img_name}".format(img_name=img_name))
     r = requests.get(url, stream=True)
@@ -199,6 +207,39 @@ def get_repo_img(url, extension="qcow2", ssl_verify=False):
 
 
 @connection
+def get_storage_pool(connection, name, path, autostart=True, active=True):
+    """Get storage pool else create.
+
+    Args:
+        name: storage pool name
+        path: storage pool path (dir)
+        autostart: start pool at boot
+        active: active pool
+
+    Return: storage pool
+    """
+    try:
+        pool = connection.conn.storagePoolLookupByName(name)
+    except Exception:
+        if not os.path.exists(path):
+            os.system("sudo mkdir {}".format(path))
+
+        pool_xml = miq_storage_pool.format(name=name, path=path)
+        pool = connection.conn.storagePoolDefineXML(pool_xml, 0)
+        if not pool:
+            click.echo('Failed to create StoragePool object.', file=sys.stderr)
+            exit(1)
+
+    if active and not pool.isActive():
+        pool.create()
+
+    if autostart and not pool.autostart():
+        pool.setAutostart(autostart=True)
+
+    return pool
+
+
+@connection
 def create_disk(connection, name, size, format="qcow2"):
     """Create storage disk
 
@@ -207,20 +248,14 @@ def create_disk(connection, name, size, format="qcow2"):
         size: disk size
         format: disk image format
 
-    Return: storage pool
+    Return: storage volume
     """
-    with open("miqbox/xmls/storage.xml", "r") as f:
-        stgvol_xml_raw = f.read()
+    pool_name = connection.cfg.get("storage_pool")
+    pool_path = connection.cfg.get("libvirt_image")
+    pool = get_storage_pool(name=pool_name, path=pool_path)
 
-    stgvol_xml = stgvol_xml_raw.format(name=name, size=size, format=format)
-    storage = connection.cfg.get("storage_pool")
-    try:
-        pool = connection.conn.storagePoolLookupByName(storage)
-    except Exception:
-        click.echo(
-            "{storage} storage pool not found need to configure proper pool name".format(storage)
-        )
-        exit(1)
+    stgvol_xml = miq_volume.format(name=name, size=size, format=format, path=pool_path)
+
     try:
         return pool.createXML(stgvol_xml, 0)
     except Exception:
@@ -238,10 +273,8 @@ def create_appliance(connection, name, base_img, db_img, memory):
          memory: appliance memory
      Return: storage pool
      """
-
-    with open("miqbox/xmls/appliance.xml", "r") as f:
-        app_xml_raw = f.read()
-    app_xml = app_xml_raw.format(name=name, base_img=base_img, db_img=db_img, memory=str(memory))
+    pool_path = connection.cfg.get("libvirt_image")
+    app_xml = miq_ap.format(name=name, base_img=base_img, db_img=db_img, memory=str(memory), path=pool_path)
     dom = connection.conn.defineXML(app_xml)
     if dom:
         return dom
@@ -260,7 +293,7 @@ def config():
         "Hypervisor drivers url", default=cfg.get("hypervisor_driver")
     )
     cfg["storage_pool"] = click.prompt("Storage Pool Name", default=cfg.get("storage_pool"))
-    cfg["libvirt_image"] = click.prompt("Libvirt Image Location", default=cfg.get("libvirt_image"))
+    cfg["libvirt_image"] = click.prompt("Storage Pool Path", default=cfg.get("libvirt_image"))
     cfg["local_image"] = click.prompt("Local Image Location", default=cfg.get("local_image"))
     cfg["repository"]["upstream"] = click.prompt(
         "Upstream Repository", default=cfg["repository"]["upstream"]
@@ -289,7 +322,6 @@ def status(all, running, stop):
     Returns:
         echo status on cli
     """
-
     if running:
         status = "running"
     elif stop:
