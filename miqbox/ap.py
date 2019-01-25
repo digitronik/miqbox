@@ -42,7 +42,7 @@ class ApplianceConsole(object):
             result = ""
             try:
                 while True:
-                    result += self.channel.recv(1)
+                    result += str(self.channel.recv(1))
                     if "Press any key to continue" in result:
                         break
             except socket.timeout:

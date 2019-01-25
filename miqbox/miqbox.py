@@ -9,8 +9,8 @@ import requests
 import yaml
 from bs4 import BeautifulSoup
 
-from ap import ApplianceConsole
-from miq_xmls import miq_ap, miq_storage_pool, miq_volume
+from miqbox.ap import ApplianceConsole
+from miqbox.miq_xmls import miq_ap, miq_storage_pool, miq_volume
 
 
 VM_STATE = {
@@ -96,8 +96,6 @@ def get_appliances(connection, status=None):
     Returns:
         (`dirt`) all appliances/ appliances are per status
     """
-    conn = connection.conn
-    import ipdb; ipdb.set_trace()
     domains = {domain.name(): domain for domain in connection.conn.listAllDomains()}
 
     if status:
