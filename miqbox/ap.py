@@ -27,7 +27,7 @@ class ApplianceConsole(object):
                     hostname=self.hostname, username=self.user, password=self.password
                 )
                 return True
-            except Exception as e:
+            except Exception:
                 # ToDo: Include while implementing verbos
                 pass
         else:
