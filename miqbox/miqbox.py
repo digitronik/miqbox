@@ -1,3 +1,12 @@
+#!/usr/bin/env python
+#
+# Copyright (C) 2018 Nikhil Dhandre (digitronik).
+#
+# This file is part of miqbox project. You can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version (GPLv2) of the License.
+
+
 import os
 import sys
 import time
@@ -6,12 +15,11 @@ import xml.etree.ElementTree as ET
 import click
 import libvirt
 import requests
-import yaml
 from bs4 import BeautifulSoup
+from ruamel.yaml import safe_dump, safe_load
 
 from miqbox.ap import ApplianceConsole
 from miqbox.miq_xmls import miq_ap, miq_storage_pool, miq_volume
-
 
 VM_STATE = {
     libvirt.VIR_DOMAIN_RUNNING: "running",
@@ -73,7 +81,7 @@ class Configuration(object):
 
     def read(self):
         with open(self.conf_file, "r") as ymlfile:
-            return yaml.load(ymlfile)
+            return safe_load(ymlfile)
 
     def write(self, cfg):
         if not os.path.isdir(cfg.get("libvirt_image")):
@@ -83,7 +91,7 @@ class Configuration(object):
             os.mkdir(cfg.get("local_image"))
 
         with open(self.conf_file, "w") as ymlfile:
-            return yaml.dump(cfg, ymlfile, default_flow_style=False)
+            return safe_dump(cfg, ymlfile, default_flow_style=False)
 
 
 @connection
@@ -225,7 +233,7 @@ def get_storage_pool(connection, name, path, autostart=True, active=True):
         pool_xml = miq_storage_pool.format(name=name, path=path)
         pool = connection.conn.storagePoolDefineXML(pool_xml, 0)
         if not pool:
-            click.echo('Failed to create StoragePool object.', file=sys.stderr)
+            click.echo("Failed to create StoragePool object.", file=sys.stderr)
             exit(1)
 
     if active and not pool.isActive():
@@ -272,7 +280,9 @@ def create_appliance(connection, name, base_img, db_img, memory):
      Return: storage pool
      """
     pool_path = connection.cfg.get("libvirt_image")
-    app_xml = miq_ap.format(name=name, base_img=base_img, db_img=db_img, memory=str(memory), path=pool_path)
+    app_xml = miq_ap.format(
+        name=name, base_img=base_img, db_img=db_img, memory=str(memory), path=pool_path
+    )
     dom = connection.conn.defineXML(app_xml)
     if dom:
         return dom
@@ -600,12 +610,13 @@ def create(connection, name, image, memory, db_size, db=None):
         stream = "upstream"
 
     if stream != "upstream":
-        # database configuration only need for downstream
+        # pre-database configuration only need for downstream
         conf = click.prompt(
             "Do you want to setup internal database?", default="y", type=click.Choice(["y", "n"])
         )
 
         if conf == "y":
+            click.echo("wait... it will take some time to configure db...")
             start_time = time.time()
             while time.time() < start_time + 30:
                 hostname = get_vm_info(dom).get("hostname", None)

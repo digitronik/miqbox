@@ -5,26 +5,26 @@ with open("README.md") as readme_file:
     readme = readme_file.read()
 
 install_requirements = [
-    "Click>=5.0",
-    "libvirt-python>=3.0",
-    "requests>=2.20",
     "bs4>=0.0.1",
-    "paramiko>=2.4",
-    "pyaml>=18.10",
+    "Click>=5.0",
+    "libvirt-python>=4.0",
+    "paramiko~=2.3",
+    "requests>=2.20",
+    "ruamel.yaml~=0.15",
 ]
 
 setup_requirements = ["setuptools_scm"]
 
 setup(
     author="Nikhil Dhandre",
-    author_email="ndhandre@redhat.com",
+    author_email="nik.digitronik@live.com",
     classifiers=[
         "Natural Language :: English",
         "Programming Language :: Python :: 2.7",
         "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
     ],
-    description="Spin ManageIQ/CFME Appliance locally",
+    description="Spin ManageIQ/CFME Appliance locally.",
     entry_points={"console_scripts": ["miqbox=miqbox.miqbox:cli"]},
     install_requires=install_requirements,
     long_description=readme,
@@ -34,7 +34,7 @@ setup(
     name="miqbox",
     packages=find_packages(include=["miqbox"]),
     url="https://github.com/digitronik/miqbox",
-    version="0.1.0",
-    license="GNU-2",
+    version="0.1",
+    license="GPLv2",
     zip_safe=False,
 )

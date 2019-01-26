@@ -5,7 +5,11 @@ import paramiko
 
 
 class ApplianceConsole(object):
-    """Configure appliance"""
+    """Configure appliance
+
+    Reference:
+    https://github.com/ManageIQ/integration_tests
+    """
 
     def __init__(self, hostname, user, password):
         self.hostname = hostname
