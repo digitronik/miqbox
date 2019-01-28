@@ -36,6 +36,7 @@ miq_volume = """
 miq_ap = """
 <domain type='kvm'>
     <name>{name}</name>
+    <description>{version}</description>
     <memory unit='G'>{memory}</memory>
     <currentMemory unit='G'>{memory}</currentMemory>
     <vcpu placement='static'>1</vcpu>
@@ -51,17 +52,6 @@ miq_ap = """
             <apic/>
             <vmport state='off'/>
         </features>
-    <cpu mode='custom' match='exact' check='full'>
-        <model fallback='forbid'>Skylake-Client</model>
-        <vendor>Intel</vendor>
-        <feature policy='require' name='ss'/>
-        <!--<feature policy='require' name='vmx'/>-->
-        <feature policy='require' name='hypervisor'/>
-        <feature policy='require' name='tsc_adjust'/>
-        <feature policy='require' name='clflushopt'/>
-        <feature policy='require' name='xsaves'/>
-        <feature policy='require' name='pdpe1gb'/>
-    </cpu>
     <clock offset='utc'>
         <timer name='rtc' tickpolicy='catchup'/>
         <timer name='pit' tickpolicy='delay'/>
