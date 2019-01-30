@@ -373,20 +373,20 @@ def start(connection, name):
     except Exception:
         click.echo("Fail to start appliance...")
 
-@cli.command(help="Restart Appliance Server")
-@click.argument("name")
+@cli.command(help="Restart Miq/CFME Server")
+@click.option("-r", "--restart", nargs=1)
 @connection
-def restart(connection, name):
-    """Stop running appliance
+def evmserver(connection, restart):
+    """Restart Miq/CFME server of appliance
 
     Args:
-        name: (`str`) appliance name
+        restart: (`str` or 'int') appliance name or id
     """
     try:
-        id = int(name)
+        id = int(restart)
         dom = connection.conn.lookupByID(id)
     except ValueError:
-        dom = connection.conn.lookupByName(name)
+        dom = connection.conn.lookupByName(restart)
 
     raw_xml = dom.XMLDesc(0)
     root = ET.fromstring(raw_xml)
@@ -395,7 +395,7 @@ def restart(connection, name):
     ap = ApplianceConsole(hostname=hostname, user="root", password="smartvm")
     if ap.connect():
         ap.server_restart(ver=version)
-        click.echo("Appliance server restarted successfully...")
+        click.echo("Miq/CFME appliance server restarted successfully...")
 
 
 @cli.command(help="Stop Appliance")
@@ -599,7 +599,6 @@ def create(connection, name, image, memory, db_size, db=None):
     db_disk_name = "{app_name}-db".format(app_name=name)
     extension = image.split(".")[-1]
     base_disk_name = "{name}.{ext}".format(name=name, ext=extension)
-
     stream = image.split("-")[2]
 
     if image in os.listdir(image_dir):
@@ -619,8 +618,6 @@ def create(connection, name, image, memory, db_size, db=None):
         os.system("sudo rm -rf {dest}".format(dest=destination))
         exit(0)
 
-
-
     if db:
         dom = create_appliance(name=name, base_img=base_disk_name, db_img=db.name(), memory=memory,
                                version=stream)
@@ -630,7 +627,6 @@ def create(connection, name, image, memory, db_size, db=None):
         else:
             click.echo("Fails to create {name} appliance...".format(name=dom.name()))
             exit(0)
-
 
     if not stream.isalpha():
         # pre-database configuration only need for downstream
