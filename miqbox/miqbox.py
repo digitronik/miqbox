@@ -280,8 +280,12 @@ def create_appliance(connection, name, base_img, db_img, memory, version):
      """
     pool_path = connection.cfg.get("libvirt_image")
     app_xml = miq_ap.format(
-        name=name, base_img=base_img, db_img=db_img, memory=str(memory), path=pool_path,
-        version=version
+        name=name,
+        base_img=base_img,
+        db_img=db_img,
+        memory=str(memory),
+        path=pool_path,
+        version=version,
     )
     dom = connection.conn.defineXML(app_xml)
     if dom:
@@ -373,6 +377,7 @@ def start(connection, name):
     except Exception:
         click.echo("Fail to start appliance...")
 
+
 @cli.command(help="Restart Miq/CFME Server")
 @click.option("-r", "--restart", nargs=1)
 @connection
@@ -390,7 +395,7 @@ def evmserver(connection, restart):
 
     raw_xml = dom.XMLDesc(0)
     root = ET.fromstring(raw_xml)
-    version = (root.findall('description')[0]).text
+    version = (root.findall("description")[0]).text
     hostname = get_vm_info(dom).get("hostname", None)
     ap = ApplianceConsole(hostname=hostname, user="root", password="smartvm")
     if ap.connect():
@@ -619,8 +624,9 @@ def create(connection, name, image, memory, db_size, db=None):
         exit(0)
 
     if db:
-        dom = create_appliance(name=name, base_img=base_disk_name, db_img=db.name(), memory=memory,
-                               version=stream)
+        dom = create_appliance(
+            name=name, base_img=base_disk_name, db_img=db.name(), memory=memory, version=stream
+        )
         if dom:
             dom.create()
             click.echo("Appliance {name} created successfully...".format(name=dom.name()))
