@@ -46,6 +46,28 @@ Note: For Development install in editable mode.
 
 ## Troubleshooting:
 - [libvirt: Polkit error](https://fedoraproject.org/wiki/QA:Testcase_Virt_ACLs)
-
+- To prevent `libvirt` from asking `root` password:
+    - Add `libvirt` group (It may be present by default)
+        ```
+        sudo groupadd libvirt
+        ``` 
+    - Add not root `user` as member
+        ```
+        sudo usermod -a -G libvirt <username>
+        ```
+    - Add `Polkit` rule for `libvirt`:
+        ```
+        vim /etc/polkit-1/rules.d/80-libvirt.rules
+        ```
+        ```
+        polkit.addRule(function(action, subject) {
+        if (action.id == "org.libvirt.unix.manage"
+            && subject.local
+            && subject.active
+            && subject.isInGroup("libvirt")) {
+        return polkit.Result.YES;
+        }
+        });
+        ```
 
 ## Usage:
