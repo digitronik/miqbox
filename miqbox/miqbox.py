@@ -151,7 +151,6 @@ def get_vm_info(domain):
 
     id = domain.ID() if domain.ID() > 0 else "---"
     ips = get_hostnames(domain)
-
     for conn, ip in ips.items():
         if "lo" == conn:
             pass
@@ -269,7 +268,7 @@ def create_disk(connection, name, size, format="qcow2"):
 
 
 @connection
-def create_appliance(connection, name, base_img, db_img, memory):
+def create_appliance(connection, name, base_img, db_img, memory, version):
     """Create appliance domain
 
      Args:
@@ -281,7 +280,8 @@ def create_appliance(connection, name, base_img, db_img, memory):
      """
     pool_path = connection.cfg.get("libvirt_image")
     app_xml = miq_ap.format(
-        name=name, base_img=base_img, db_img=db_img, memory=str(memory), path=pool_path
+        name=name, base_img=base_img, db_img=db_img, memory=str(memory), path=pool_path,
+        version=version
     )
     dom = connection.conn.defineXML(app_xml)
     if dom:
@@ -372,6 +372,30 @@ def start(connection, name):
         domain.create()
     except Exception:
         click.echo("Fail to start appliance...")
+
+@cli.command(help="Restart Miq/CFME Server")
+@click.option("-r", "--restart", nargs=1)
+@connection
+def evmserver(connection, restart):
+    """Restart Miq/CFME server of appliance
+
+    Args:
+        restart: (`str` or 'int') appliance name or id
+    """
+    try:
+        id = int(restart)
+        dom = connection.conn.lookupByID(id)
+    except ValueError:
+        dom = connection.conn.lookupByName(restart)
+
+    raw_xml = dom.XMLDesc(0)
+    root = ET.fromstring(raw_xml)
+    version = (root.findall('description')[0]).text
+    hostname = get_vm_info(dom).get("hostname", None)
+    ap = ApplianceConsole(hostname=hostname, user="root", password="smartvm")
+    if ap.connect():
+        ap.server_restart(ver=version)
+        click.echo("Miq/CFME appliance server restarted successfully...")
 
 
 @cli.command(help="Stop Appliance")
@@ -575,6 +599,7 @@ def create(connection, name, image, memory, db_size, db=None):
     db_disk_name = "{app_name}-db".format(app_name=name)
     extension = image.split(".")[-1]
     base_disk_name = "{name}.{ext}".format(name=name, ext=extension)
+    stream = image.split("-")[2]
 
     if image in os.listdir(image_dir):
         source = os.path.join(image_dir, image)
@@ -594,7 +619,8 @@ def create(connection, name, image, memory, db_size, db=None):
         exit(0)
 
     if db:
-        dom = create_appliance(name=name, base_img=base_disk_name, db_img=db.name(), memory=memory)
+        dom = create_appliance(name=name, base_img=base_disk_name, db_img=db.name(), memory=memory,
+                               version=stream)
         if dom:
             dom.create()
             click.echo("Appliance {name} created successfully...".format(name=dom.name()))
@@ -602,14 +628,7 @@ def create(connection, name, image, memory, db_size, db=None):
             click.echo("Fails to create {name} appliance...".format(name=dom.name()))
             exit(0)
 
-    if "5.9" in image:
-        stream = 5.9
-    elif "5.10" in image:
-        stream = 5.10
-    else:
-        stream = "upstream"
-
-    if stream != "upstream":
+    if not stream.isalpha():
         # pre-database configuration only need for downstream
         conf = click.prompt(
             "Do you want to setup internal database?", default="y", type=click.Choice(["y", "n"])
