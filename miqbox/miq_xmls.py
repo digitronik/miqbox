@@ -44,7 +44,7 @@ miq_ap = """
         <partition>/machine</partition>
     </resource>
     <os>
-        <type arch='x86_64' machine='pc-i440fx-2.11'>hvm</type>
+        <type>hvm</type>
         <boot dev='hd'/>
     </os>
         <features>
@@ -72,7 +72,6 @@ miq_ap = """
           <backingStore/>
           <target dev='vda' bus='virtio'/>
           <alias name='virtio-disk0'/>
-          <address type='pci' domain='0x0000' bus='0x00' slot='0x07' function='0x0'/>
         </disk>
         <disk type='file' device='disk'>
           <driver name='qemu' type='qcow2'/>
@@ -80,14 +79,12 @@ miq_ap = """
           <backingStore/>
           <target dev='vdb' bus='virtio'/>
           <alias name='virtio-disk1'/>
-          <address type='pci' domain='0x0000' bus='0x00' slot='0x08' function='0x0'/>
         </disk>
         <interface type='network'>
           <source network='default' bridge='virbr0'/>
           <target dev='vnet0'/>
           <model type='virtio'/>
           <alias name='net0'/>
-          <address type='pci' domain='0x0000' bus='0x00' slot='0x03' function='0x0'/>
         </interface>
         <input type='mouse' bus='ps2'>
           <alias name='input1'/>
@@ -99,15 +96,6 @@ miq_ap = """
           <listen type='address' address='127.0.0.1'/>
           <image compression='off'/>
         </graphics>
-        <sound model='ich6'>
-          <alias name='sound0'/>
-          <address type='pci' domain='0x0000' bus='0x00' slot='0x04' function='0x0'/>
-        </sound>
-        <video>
-          <model type='qxl' ram='65536' vram='65536' vgamem='16384' heads='1' primary='yes'/>
-          <alias name='video0'/>
-          <address type='pci' domain='0x0000' bus='0x00' slot='0x02' function='0x0'/>
-        </video>
     </devices>
 </domain>
 """
