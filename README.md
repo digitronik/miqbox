@@ -1,5 +1,6 @@
-<a href="https://github.com/digitronik/miqbox/blob/master/LICENSE"><img alt="License: GPL v2" src="https://img.shields.io/badge/License-GPL%20v2-blue.svg"></a>
-<a href="https://github.com/ambv/black"><img alt="Code style: black" src="https://img.shields.io/badge/code%20style-black-000000.svg"></a>
+[![alt text](https://img.shields.io/badge/License-GPL%20v2-blue.svg)](https://github.com/digitronik/miqbox/blob/master/LICENSE)
+[![alt text](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/ambv/black)
+
 
 # miqbox
 Spin `ManageIQ/CFME` Appliance locally with `Virtualization`.
@@ -71,3 +72,23 @@ Note: For Development install in editable mode.
         ```
 
 ## Usage:
+   ```
+    Usage: miqbox [OPTIONS] COMMAND [ARGS]...
+    
+      Command line application entry point
+    
+    Options:
+      --help  Show this message and exit.
+    
+    Commands:
+      config     Configure miqbox
+      create     Create Appliance
+      evmserver  Restart Miq/CFME Server
+      images     Get local or remote available image Args: local: default, will...
+      kill       Kill Appliance
+      pull       Download Image
+      rmi        Remove local Image
+      start      Start Appliance
+      status     Appliance Status
+      stop       Stop Appliance
+   ```
