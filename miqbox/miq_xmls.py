@@ -39,7 +39,7 @@ miq_ap = """
     <description>{version}</description>
     <memory unit='G'>{memory}</memory>
     <currentMemory unit='G'>{memory}</currentMemory>
-    <vcpu placement='static'>1</vcpu>
+    <vcpu placement='static'>{cpu}</vcpu>
     <resource>
         <partition>/machine</partition>
     </resource>

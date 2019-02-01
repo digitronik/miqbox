@@ -268,21 +268,24 @@ def create_disk(connection, name, size, format="qcow2"):
 
 
 @connection
-def create_appliance(connection, name, base_img, db_img, memory, version):
+def create_appliance(connection, name, base_img, db_img, cpu, memory, version):
     """Create appliance domain
 
      Args:
          name: appliance name
          base_img: appliance image name
          db_img: database image name
+         cpu: cpu count
          memory: appliance memory
-     Return: storage pool
+         version: appliance version
+     Return: libvirt domain
      """
     pool_path = connection.cfg.get("libvirt_image")
     app_xml = miq_ap.format(
         name=name,
         base_img=base_img,
         db_img=db_img,
+        cpu=str(cpu),
         memory=str(memory),
         path=pool_path,
         version=version,
@@ -587,10 +590,11 @@ def rmi(connection, image_name):
 @cli.command(help="Create Appliance")
 @click.option("--name", prompt="Appliance name")
 @click.option("--image", prompt="Image name")
+@click.option("--cpu", default=1, prompt="CPU count")
 @click.option("--memory", default=4, prompt="Memory in GiB")
 @click.option("--db_size", default=8, prompt="Database size in GiB")
 @connection
-def create(connection, name, image, memory, db_size, db=None):
+def create(connection, name, image, cpu, memory, db_size, db=None):
     """Create appliance
 
     Args:
@@ -625,7 +629,12 @@ def create(connection, name, image, memory, db_size, db=None):
 
     if db:
         dom = create_appliance(
-            name=name, base_img=base_disk_name, db_img=db.name(), memory=memory, version=stream
+            name=name,
+            base_img=base_disk_name,
+            db_img=db.name(),
+            cpu=cpu,
+            memory=memory,
+            version=stream,
         )
         if dom:
             dom.create()
