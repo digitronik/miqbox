@@ -18,8 +18,8 @@ import requests
 from bs4 import BeautifulSoup
 from ruamel.yaml import safe_dump, safe_load
 
-from ap import ApplianceConsole
-from miq_xmls import miq_ap, miq_storage_pool, miq_volume
+from miqbox.ap import ApplianceConsole
+from miqbox.miq_xmls import miq_ap, miq_storage_pool, miq_volume
 
 VM_STATE = {
     libvirt.VIR_DOMAIN_RUNNING: "running",
