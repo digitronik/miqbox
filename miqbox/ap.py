@@ -33,12 +33,12 @@ class ApplianceConsole(object):
         else:
             return False
 
-    def run_commands(self, commands, autoreturn=True, timeout=10):
+    def run_commands(self, commands, autoreturn=True, timeout=30):
         if not self.channel:
             self.channel = self.client.invoke_shell()
         for command in commands:
             if command == "w":
-                timeout = 40
+                timeout = 90
             self.channel.settimeout(timeout)
             if autoreturn:
                 command = command + "\n"
