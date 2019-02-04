@@ -7,7 +7,6 @@ with open("README.md") as readme_file:
 install_requirements = [
     "bs4>=0.0.1",
     "Click>=5.0",
-    "cryptography==2.4.2",      # remove as paramiko released
     "libvirt-python>=4.0",
     "paramiko~=2.3",
     "requests>=2.20",
@@ -21,6 +20,7 @@ setup(
     author_email="nik.digitronik@live.com",
     classifiers=[
         "Natural Language :: English",
+        "Programming Language :: Python :: 3.4",
         "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
     ],
