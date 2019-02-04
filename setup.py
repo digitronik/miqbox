@@ -7,6 +7,7 @@ with open("README.md") as readme_file:
 install_requirements = [
     "bs4>=0.0.1",
     "Click>=5.0",
+    "cryptography==2.4.2",      # remove as paramiko released
     "libvirt-python>=4.0",
     "paramiko~=2.3",
     "requests>=2.20",
@@ -20,7 +21,6 @@ setup(
     author_email="nik.digitronik@live.com",
     classifiers=[
         "Natural Language :: English",
-        "Programming Language :: Python :: 2.7",
         "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
     ],
@@ -28,14 +28,14 @@ setup(
     entry_points={"console_scripts": ["miqbox=miqbox.miqbox:cli"]},
     install_requires=install_requirements,
     long_description=readme,
-    long_description_content_type='text/markdown',
+    long_description_content_type="text/markdown",
     include_package_data=True,
     setup_requires=setup_requirements,
     keywords="miqbox",
     name="miqbox",
     packages=find_packages(include=["miqbox"]),
     url="https://github.com/digitronik/miqbox",
-    version="0.3",
+    version="0.5",
     license="GPLv2",
     zip_safe=False,
 )
