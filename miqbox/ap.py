@@ -1,5 +1,6 @@
 import socket
 import time
+from distutils.version import LooseVersion
 
 import paramiko
 
@@ -55,11 +56,11 @@ class ApplianceConsole(object):
             # print(result)
 
     def db_config(self, ver):
-        db_conf = "5" if ver < "5.10" else "7"
+        db_conf = "5" if LooseVersion(ver) < LooseVersion("5.10") else "7"
         self.run_commands(("ap", "", db_conf, "1", "1", "1", "N", "0", "smartvm", "smartvm", "w"))
 
     def server_restart(self, ver):
-        evm_server = "15" if ver < "5.10" else "17"
+        evm_server = "15" if LooseVersion(ver) < LooseVersion("5.10") else "17"
         self.run_commands(("ap", "", evm_server, "Y", ""))
 
 
