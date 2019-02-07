@@ -43,6 +43,7 @@ class Connection(object):
 connection = click.make_pass_decorator(Connection, ensure=True)
 
 
+@click.version_option()
 @click.group()
 @connection
 def cli(connection):
