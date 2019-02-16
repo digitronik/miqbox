@@ -35,7 +35,7 @@ setup(
     name="miqbox",
     packages=find_packages(include=["miqbox"]),
     url="https://github.com/digitronik/miqbox",
-    version="0.5",
+    version="0.6",
     license="GPLv2",
     zip_safe=False,
 )
