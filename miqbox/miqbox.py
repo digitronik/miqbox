@@ -494,8 +494,9 @@ def kill(connection, name):
 @cli.command()
 @click.option("-l", "--local", is_flag=True, help="All available local images")
 @click.option("-r", "--remote", is_flag=True, help="All available remote images")
+@click.option("-f", "--find", type=str, help="Find specific image")
 @connection
-def images(connection, local, remote):
+def images(connection, local, remote, find):
     """Get local or remote available image
 
     Args:
@@ -527,10 +528,16 @@ def images(connection, local, remote):
             url = "{base_repo}/builds/cfme/{ver}/stable".format(base_repo=base_repo, ver=ver)
 
         for img in get_repo_img(url=url, extension=extension):
-            click.echo(img)
+            if find:
+                click.echo(img) if find in img else 0
+            else:
+                click.echo(img)
     else:
         for img in os.listdir(img_dir):
-            click.echo(img)
+            if find:
+                click.echo(img) if find in img else 0
+            else:
+                click.echo(img)
 
 
 @cli.command(help="Download Image")
