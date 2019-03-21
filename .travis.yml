@@ -1,0 +1,13 @@
+language: python
+
+# For now adding simple code style check. As libvirt we need special system to check this.
+python:
+-   "3.6"
+
+install:
+-   pip install flake8 black
+script:
+-   flake8 setup.py miqbox
+-   black -l 99 setup.py miqbox
+after_failure:
+-   git diff
