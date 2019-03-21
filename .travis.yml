@@ -1,11 +1,12 @@
 language: python
 
-# For now adding simple code style check. As libvirt we need special system to check this.
+# For now adding simple code style check.
+# As libvirt dependancy we need special system for more checks.
 python:
 -   "3.6"
 
 install:
--   pip install flake8 black
+-   pip install -r requirements-dev.txt
 script:
 -   flake8 setup.py miqbox
 -   black -l 99 setup.py miqbox
