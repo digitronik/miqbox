@@ -20,10 +20,11 @@ setup(
     author_email="nik.digitronik@live.com",
     classifiers=[
         "Natural Language :: English",
-        "Programming Language :: Python :: 3.4",
+        "Programming Language :: Python :: 3.5",
         "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
     ],
+    python_requires=">=3.5",
     description="Spin ManageIQ/CFME Appliance locally.",
     entry_points={"console_scripts": ["miqbox=miqbox.miqbox:cli"]},
     install_requires=install_requirements,
