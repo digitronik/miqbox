@@ -515,7 +515,7 @@ def images(connection, local, remote, filter):
         base_repo = connection.cfg["repository"].get(stream)
         if stream == "downstream":
             ver = click.prompt(
-                "Version:", default="5.10", type=click.Choice(["5.8", "5.9", "5.10"])
+                "Version:", default="5.11", type=click.Choice(["5.8", "5.9", "5.10", "5.11"])
             )
             extension = "qcow2"
         else:
@@ -554,13 +554,14 @@ def pull(connection, image_name):
     if "manageiq" in image_name:
         stream = ver = "upstream"
     else:
-        if "5.10" in image_name:
-            ver = "5.10"
-        elif "5.9" in image_name:
-            ver = "5.9"
-        elif "5.8" in image_name:
-            ver = "5.8"
         stream = "downstream"
+
+        for _ver in ["5.11", "5.10", "5.9", "5.8"]:
+            if _ver in image_name:
+                ver = _ver
+                break
+        else:
+            raise NameError("Downstream version not matched with image name")
 
     base_repo = connection.cfg["repository"].get(stream)
     if stream == "upstream":
