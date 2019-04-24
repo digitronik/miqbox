@@ -601,7 +601,7 @@ def rmi(connection, image_name):
 @click.option("--image", prompt="Image name")
 @click.option("--cpu", default=1, prompt="CPU count")
 @click.option("--memory", default=4, prompt="Memory in GiB")
-@click.option("--db_size", default=8, prompt="Database size in GiB")
+@click.option("--db_size", default=5, prompt="Database size in GiB")
 @connection
 def create(connection, name, image, cpu, memory, db_size, db=None):
     """Create appliance
