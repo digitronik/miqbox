@@ -401,9 +401,9 @@ def evmserver(connection, restart):
     root = ET.fromstring(raw_xml)
     version = (root.findall("description")[0]).text
     hostname = get_vm_info(dom).get("hostname", None)
-    ap = ApplianceConsole(hostname=hostname, user="root", password="smartvm")
+    ap = ApplianceConsole(hostname=hostname, user="root", password="smartvm", version=version)
     if ap.connect():
-        ap.server_restart(ver=version)
+        ap.server_restart()
         click.echo("Miq/CFME appliance server restarted successfully...")
 
 
@@ -669,7 +669,9 @@ def create(connection, name, image, cpu, memory, db_size, db=None):
                 click.echo("Unable to get hostname for appliance... try latter")
                 exit(0)
 
-            ap = ApplianceConsole(hostname=hostname, user="root", password="smartvm")
+            ap = ApplianceConsole(
+                hostname=hostname, user="root", password="smartvm", version=stream
+            )
             if ap.connect():
-                ap.db_config(ver=stream)
+                ap.db_config()
                 click.echo("Appliance database configured successfully...")

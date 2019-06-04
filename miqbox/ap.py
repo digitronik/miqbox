@@ -1,8 +1,13 @@
 import socket
 import time
 from distutils.version import LooseVersion
+import warnings
 
+import click
 import paramiko
+
+# TODO: remove this as paramiko 2.4.2+ release comes. Its just for avoid warnings.
+warnings.filterwarnings(action="ignore", module=".*paramiko.*")
 
 
 class ApplianceConsole(object):
@@ -12,10 +17,11 @@ class ApplianceConsole(object):
     https://github.com/ManageIQ/integration_tests
     """
 
-    def __init__(self, hostname, user, password):
+    def __init__(self, hostname, user, password, version):
         self.hostname = hostname
         self.user = user
         self.password = password
+        self.version = version
         self.client = paramiko.SSHClient()
         self.channel = None
 
@@ -34,12 +40,12 @@ class ApplianceConsole(object):
         else:
             return False
 
-    def run_commands(self, commands, autoreturn=True, timeout=30):
+    def run_commands(self, commands, autoreturn=True, timeout=10):
         if not self.channel:
             self.channel = self.client.invoke_shell()
         for command in commands:
             if command == "w":
-                timeout = 90
+                timeout = 120
             self.channel.settimeout(timeout)
             if autoreturn:
                 command = command + "\n"
@@ -47,24 +53,24 @@ class ApplianceConsole(object):
             result = ""
             try:
                 while True:
-                    result += str(self.channel.recv(1))
+                    result += self.channel.recv(1).decode("ascii")
                     if "Press any key to continue" in result:
                         break
             except socket.timeout:
                 pass
             # ToDo: print results in proper verbose
-            # print(result)
+            click.echo(result)
 
-    def db_config(self, ver):
-        db_conf = "5" if LooseVersion(ver) < LooseVersion("5.10") else "7"
+    def db_config(self):
+        db_conf = "5" if LooseVersion(self.version) < LooseVersion("5.10") else "7"
         self.run_commands(("ap", "", db_conf, "1", "1", "1", "N", "0", "smartvm", "smartvm", "w"))
 
-    def server_restart(self, ver):
-        evm_server = "15" if LooseVersion(ver) < LooseVersion("5.10") else "17"
+    def server_restart(self):
+        evm_server = "15" if LooseVersion(self.version) < LooseVersion("5.10") else "17"
         self.run_commands(("ap", "", evm_server, "Y", ""))
 
 
 if __name__ == "__main__":
-    ap = ApplianceConsole(hostname="192.168.122.37", user="root", password="foo")
+    ap = ApplianceConsole(hostname="192.168.122.37", user="root", password="foo", version="5.11")
     ap.connect()
     ap.run_commands(("ap", "", "7", "1", "1", "1", "N", "", "0", "smartvm", "smartvm"))
