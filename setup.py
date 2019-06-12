@@ -32,11 +32,11 @@ setup(
     long_description_content_type="text/markdown",
     include_package_data=True,
     setup_requires=setup_requirements,
+    use_scm_version=True,
     keywords="miqbox",
     name="miqbox",
     packages=find_packages(include=["miqbox"]),
     url="https://github.com/digitronik/miqbox",
-    version="0.8",
     license="GPLv2",
     zip_safe=False,
 )
