@@ -579,21 +579,21 @@ def pull(connection, image_name):
             click.echo("{img} already available".format(img=image_name))
 
 
-@cli.command(help="Remove local Image")
-@click.argument("image_name")
+@cli.command(help="Remove local Images")
+@click.argument("image_names", nargs=-1)
 @connection
-def rmi(connection, image_name):
-    """Remove local image
+def rmi(connection, image_names):
+    """Remove local images
 
     Args:
-        image_name: local image name
+        image_names: list of local image names
     """
     img_dir = connection.cfg.get("local_image")
-
-    if image_name in os.listdir(img_dir):
-        os.system("rm -rf '{img_dir}/{name}'".format(img_dir=img_dir, name=image_name))
-    else:
-        click.echo("{img} not available".format(img=image_name))
+    for image in image_names:
+        if image in os.listdir(img_dir):
+            os.system("rm -rf '{img_dir}/{name}'".format(img_dir=img_dir, name=image))
+        else:
+            click.echo("{img} not available".format(img=image))
 
 
 @cli.command(help="Create Appliance")
