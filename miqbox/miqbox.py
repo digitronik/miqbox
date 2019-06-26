@@ -8,6 +8,7 @@
 
 
 import os
+import socket
 import sys
 import time
 import xml.etree.ElementTree as ET
@@ -205,7 +206,11 @@ def get_repo_img(url, extension="qcow2", ssl_verify=False):
         extension: image extension
         ssl_verify: bool
     """
-    page = requests.get(url, verify=ssl_verify).text
+    try:
+        page = requests.get(url, verify=ssl_verify).text
+    except (socket.gaierror, requests.exceptions.ConnectionError):
+        click.echo("Check Network connection")
+        exit(1)
     soup = BeautifulSoup(page, "html.parser")
     return [
         node.get("href") for node in soup.find_all("a") if node.get("href").endswith(extension)
