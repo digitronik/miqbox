@@ -95,3 +95,13 @@ Note: For Development install in editable mode.
       stop       Stop Appliance
    ```
  
+## Contribute:
+
+- Fork the [repository](https://github.com/digitronik/miqbox.git) on GitHub and make some changes.
+Make sure to add yourself to [AUTHORS](AUTHORS.md).
+
+- Install the development requirements
+```
+pip install -r requirements-dev.txt
+```
+- Send pull requests and bugs.
