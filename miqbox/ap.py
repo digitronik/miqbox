@@ -1,7 +1,7 @@
 import socket
 import time
-from distutils.version import LooseVersion
 import warnings
+from distutils.version import LooseVersion
 
 import click
 import paramiko

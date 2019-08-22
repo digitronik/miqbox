@@ -5,8 +5,6 @@
 # This file is part of miqbox project. You can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation; either version (GPLv2) of the License.
-
-
 import os
 import socket
 import sys
@@ -17,10 +15,13 @@ import click
 import libvirt
 import requests
 from bs4 import BeautifulSoup
-from ruamel.yaml import safe_dump, safe_load
+from ruamel.yaml import safe_dump
+from ruamel.yaml import safe_load
 
 from miqbox.ap import ApplianceConsole
-from miqbox.miq_xmls import miq_ap, miq_storage_pool, miq_volume
+from miqbox.miq_xmls import miq_ap
+from miqbox.miq_xmls import miq_storage_pool
+from miqbox.miq_xmls import miq_volume
 
 VM_STATE = {
     libvirt.VIR_DOMAIN_RUNNING: "running",
@@ -212,9 +213,7 @@ def get_repo_img(url, extension="qcow2", ssl_verify=False):
         click.echo("Check Network connection")
         exit(1)
     soup = BeautifulSoup(page, "html.parser")
-    return [
-        node.get("href") for node in soup.find_all("a") if node.get("href").endswith(extension)
-    ]
+    return [node.get("href") for node in soup.find_all("a") if node.get("href").endswith(extension)]
 
 
 @connection
