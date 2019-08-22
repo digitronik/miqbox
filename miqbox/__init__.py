@@ -1,7 +1,9 @@
 import click
 
 from miqbox.configuration import config
-from miqbox.images import images, pull, rmi
+from miqbox.images import images
+from miqbox.images import pull
+from miqbox.images import rmi
 
 
 @click.version_option()
