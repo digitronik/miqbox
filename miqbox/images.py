@@ -40,7 +40,7 @@ class Images(Configuration):
         return repo
 
     def images(self, local=False):
-        """Get all available images
+        """Get all available images as per stream and version
 
         Args:
             local (bool): local or remote
@@ -108,7 +108,7 @@ class Images(Configuration):
         os.remove(os.path.join(self.image_path, name))
 
     @classmethod
-    def with_image(cls, image):
+    def instantiate_with_image(cls, image):
         """Instantiate with image name
 
         Args:
@@ -120,22 +120,25 @@ class Images(Configuration):
 
 
 @click.command(help="Check available images")
-@click.option("-l", "--local", is_flag=True, help="All available local images")
-@click.option("-r", "--remote", is_flag=True, help="All available remote images")
+@click.option("-l", "--local", is_flag=True, help="Local images as per stream and version")
+@click.option("-r", "--remote", is_flag=True, help="Remote images as per stream and version")
 @click.option("-f", "--filter", type=str, help="Filter specific image")
 def images(local, remote, filter):
     """Display images"""
 
     conf = Configuration()
 
-    streams = list(conf.repositories.keys())
-    stream = click.prompt("stream:", default=streams[0], type=click.Choice(streams))
+    if remote or local:
+        streams = list(conf.repositories.keys())
+        stream = click.prompt("stream:", default=streams[0], type=click.Choice(streams))
 
-    versions = conf.repositories.get(stream).versions
-    version = click.prompt("Version:", default=versions[-1], type=click.Choice(versions))
+        versions = conf.repositories.get(stream).versions
+        version = click.prompt("Version:", default=versions[-1], type=click.Choice(versions))
 
-    img = Images(stream=stream, version=version)
-    images = img.images(local=not remote)
+        img = Images(stream=stream, version=version)
+        images = img.images(local=not remote)
+    else:
+        images = [img for img in os.listdir(conf.image_path)]
 
     for img in images:
         if filter:
@@ -149,10 +152,10 @@ def images(local, remote, filter):
 def pull(image_name):
     """Pull image available on remote repository"""
 
-    images = Images.with_image(image_name)
+    images = Images.instantiate_with_image(image_name)
 
     if image_name not in images.images(local=True):
-        images = Images.with_image(image_name)
+        images = Images.instantiate_with_image(image_name)
         images.download(image_name)
 
     else:
