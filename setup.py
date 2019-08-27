@@ -1,4 +1,5 @@
-from setuptools import setup, find_packages
+from setuptools import find_packages
+from setuptools import setup
 
 
 with open("README.md") as readme_file:
@@ -26,7 +27,7 @@ setup(
     ],
     python_requires=">=3.5",
     description="Spin ManageIQ/CFME Appliance locally.",
-    entry_points={"console_scripts": ["miqbox=miqbox.miqbox:cli"]},
+    entry_points={"console_scripts": ["miqbox=miqbox:main"]},
     install_requires=install_requirements,
     long_description=readme,
     long_description_content_type="text/markdown",

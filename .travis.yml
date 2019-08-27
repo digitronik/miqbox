@@ -6,6 +6,7 @@ install:
 script:
 - flake8 setup.py miqbox
 - black -l 99 setup.py miqbox
+- reorder-python-imports setup.py miqbox/*.py
 after_failure:
 - git diff
 deploy:

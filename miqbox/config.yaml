@@ -1,0 +1,25 @@
+appliance:
+  password: smartvm
+  username: root
+images: ~/.miqbox/images
+libvirt:
+  driver: qemu:///system
+  storage_pool:
+    name: miqbox
+    path: /var/lib/libvirt/images/miqbox
+repositories:
+  downstream:
+    url: null
+    versions:
+    - '5.7'
+    - '5.8'
+    - '5.9'
+    - '5.10'
+    - '5.11'
+  upstream:
+    url: http://releases.manageiq.org
+    versions:
+    - gaprindashvili
+    - hammer
+    - ivanchuk
+    - master
