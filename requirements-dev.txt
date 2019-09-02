@@ -1,4 +1,2 @@
-black
-flake8
-reorder-python-imports
+pre-commit
 tox

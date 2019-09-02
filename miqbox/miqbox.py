@@ -160,6 +160,7 @@ class Appliance(Client):
         id (int): id of appliance
         credentials (nametuple): appliance credentials (username, password)
     """
+
     def __init__(self, name=None, id=None, credentials=None, *args, **kwargs):
         super(Appliance, self).__init__(*args, **kwargs)
         self.name = name
