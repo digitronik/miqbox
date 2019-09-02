@@ -7,6 +7,7 @@ libvirt:
   storage_pool:
     name: miqbox
     path: /var/lib/libvirt/images/miqbox
+logs: ~/.miqbox/logs
 repositories:
   downstream:
     url: null

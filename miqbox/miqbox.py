@@ -5,6 +5,7 @@
 # This file is part of miqbox project. You can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation; either version (GPLv2) of the License.
+import logging
 import os
 import time
 import xml.etree.ElementTree as ET
@@ -30,6 +31,8 @@ APP_STATES = {
     libvirt.VIR_DOMAIN_NOSTATE: "no state",
 }
 
+logger = logging.getLogger(__name__)
+
 
 class MiqBox(Client):
     def appliances(self, by_id=False, status=None):
@@ -52,9 +55,10 @@ class MiqBox(Client):
             }
 
         if status:
-            return {name: app for name, app in apps.items() if APP_STATES[app.state] == status}
-        else:
-            return apps
+            apps = {name: app for name, app in apps.items() if APP_STATES[app.state] == status}
+
+        logger.debug(f"Available appliance: {apps}")
+        return apps
 
     def get_appliance(self, name, status=None):
         """Get appliance
@@ -68,15 +72,20 @@ class MiqBox(Client):
             domain = self.appliances(by_id=True, status=status).get(id)
         except ValueError:
             domain = self.appliances(status=status).get(name)
-        return domain if domain else None
+
+        logger.debug(f"Appliance: '{domain.name()}'")
+        return domain
 
     @property
     def pool(self):
         """Get storage pool"""
         try:
-            return self.driver.storagePoolLookupByName(self.libvirt.pool_name)
+            pool = self.driver.storagePoolLookupByName(self.libvirt.pool_name)
+            logger.info(f"Storage pool: {self.libvirt.pool_name}")
         except libvirt.libvirtError:
-            return None
+            logger.error(f"Storage pool '{self.libvirt.pool_name}' not found")
+            pool = None
+        return pool
 
     def create_pool(self, active=True, autostart=True):
         """Create storage pool
@@ -89,13 +98,19 @@ class MiqBox(Client):
             libvirt pool
         """
         pool_xml = POOL.format(name=self.libvirt.pool_name, path=self.libvirt.pool_path)
-        pool = self.driver.storagePoolDefineXML(pool_xml, 0)
+        try:
+            pool = self.driver.storagePoolDefineXML(pool_xml, 0)
+            logger.info(f"Storage pool '{self.libvirt.pool_name}' created")
+        except libvirt.libvirtError:
+            logger.error(f"Fail to create storage pool '{self.libvirt.pool_name}'")
 
         if active and not pool.isActive():
             pool.create()
+            logger.info(f"Storage pool '{self.libvirt.pool_name}' activated")
 
         if autostart and not pool.autostart():
             pool.setAutostart(autostart=True)
+            logger.info(f"Set storage pool '{self.libvirt.pool_name}' autostart mode")
 
         return pool
 
@@ -114,9 +129,12 @@ class MiqBox(Client):
         pool = self.pool if self.pool else self.create_pool()
 
         try:
-            return pool.createXML(stgvol_xml, 0)
+            disk = pool.createXML(stgvol_xml, 0)
+            logger.info(f"Disk '{name}' of size '{size}' created")
         except libvirt.libvirtError:
-            return None
+            logger.error(f"Fail to create disk '{name}")
+            disk = None
+        return disk
 
     def create_appliance(self, name, base_img, db_img, cpu, memory, stream, provider, version):
         """Create appliance domain
@@ -147,9 +165,12 @@ class MiqBox(Client):
         try:
             dom = self.driver.defineXML(app_xml)
             dom.create()
-            return Appliance(name=name)
+            app = Appliance(name=name)
+            logger.info(f"Appliance '{name}' created")
         except libvirt.libvirtError:
-            return None
+            logger.error(f"Fail to create appliance '{name}'")
+            app = None
+        return app
 
 
 class Appliance(Client):
@@ -173,9 +194,11 @@ class Appliance(Client):
     @property
     def app(self):
         if self.id:
-            return self.driver.lookupByID(self.id)
+            ap = self.driver.lookupByID(self.id)
         else:
-            return self.driver.lookupByName(self.name)
+            ap = self.driver.lookupByName(self.name)
+        logger.debug(f"Appliance: '{ap.name()}'")
+        return ap
 
     @property
     def xml_data(self):
@@ -184,20 +207,27 @@ class Appliance(Client):
     @property
     def is_active(self):
         """check appliance is active"""
-        return bool(self.app.isActive())
+        app_active = bool(self.app.isActive())
+        logger.debug(f"Appliance isActive: {app_active}")
+        return app_active
 
     @property
     def state(self):
         """get appliance state"""
-        return self.app.state()[0]
+        app_state = self.app.state()[0]
+        logger.debug(f"Appliance state: {app_state}")
 
     @property
     def pool(self):
         """get storage pool"""
+
         try:
-            return self.driver.storagePoolLookupByName(self.libvirt.pool_name)
+            pool = self.driver.storagePoolLookupByName(self.libvirt.pool_name)
+            logger.info(f"Storage pool: {self.libvirt.pool_name}")
         except libvirt.libvirtError:
-            return None
+            logger.error(f"Storage pool '{self.libvirt.pool_name}' not found")
+            pool = None
+        return pool
 
     def start(self):
         """start appliance"""
@@ -205,12 +235,14 @@ class Appliance(Client):
             return False
         else:
             self.app.create()
+            logger.info("Appliance started")
             return True
 
     def stop(self):
         """stop appliance"""
         if self.is_active:
             self.app.shutdown()
+            logger.info("Appliance stopped")
             return True
         else:
             return False
@@ -225,7 +257,7 @@ class Appliance(Client):
                 if not self.is_active:
                     break
                 if time.time() > timeout:
-                    print("Fail to shutdown appliance")
+                    logger.error(f"Fail to shutdown appliance")
                     return False
 
         storage_db = {item.name(): item for item in self.pool.listAllVolumes()}
@@ -242,7 +274,7 @@ class Appliance(Client):
             if os.path.isfile(source):
                 os.remove(source)
 
-            print(f"Disk '{file} removed'...")
+            logger.info(f"Disk '{file}' removed")
 
         # undefine appliance to remove
         self.app.undefine()
@@ -253,6 +285,7 @@ class Appliance(Client):
         """Get hostname assigned to appliances"""
 
         ips = dict()
+
         if self.app.isActive():
             ifaces = self.app.interfaceAddresses(
                 libvirt.VIR_DOMAIN_INTERFACE_ADDRESSES_SRC_LEASE, 0
@@ -265,6 +298,7 @@ class Appliance(Client):
                 ]
 
         ips = [ips[0] for conn, ips in ips.items() if conn != "lo"]
+        logger.debug(f"Hostname for appliance: \n {ips}")
         return ips[0] if ips else "---"
 
     @property
@@ -302,6 +336,7 @@ class Appliance(Client):
 @click.option("-s", "--stop", is_flag=True, help="All Stopped Appliances")
 def status(all, running, stop):
     """Get appliances status"""
+    logger.info("miqbox status command")
 
     if running:
         status = "running"
@@ -323,6 +358,7 @@ def status(all, running, stop):
 @click.argument("name", type=click.STRING)
 def start(name):
     """ Start/ Invoke appliance"""
+    logger.info("miqbox start command")
 
     box = MiqBox()
     app = box.get_appliance(name, status="shut off")
@@ -340,7 +376,7 @@ def start(name):
 @click.option("-r", "--restart", nargs=1)
 def evmserver(restart):
     """Restart Miq/CFME server of appliance"""
-
+    logger.info("miqbox evmserver command")
     box = MiqBox()
     app = box.get_appliance(restart, status="running")
     app_console = Console(appliance=app)
@@ -352,6 +388,7 @@ def evmserver(restart):
 @click.argument("name")
 def stop(name):
     """Stop running appliance"""
+    logger.info("miqbox stop command")
 
     box = MiqBox()
     app = box.get_appliance(name, status="running")
@@ -368,6 +405,8 @@ def stop(name):
 @click.argument("name")
 def kill(name):
     """Kill appliance"""
+    logger.info("miqbox kill command")
+
     box = MiqBox()
     app = box.get_appliance(name)
 
@@ -385,36 +424,48 @@ def kill(name):
 @click.option("--count", default=1, prompt="Number of appliance")
 def create(image, cpu, memory, db_size, count, configure=False):
     """Create appliance"""
+    logger.info("miqbox create command")
 
     box = MiqBox()
     stream, prov, version, *_ = image.split("-")
     extension = image.split(".")[-1]
 
     name = click.prompt("Appliance Name:", default=f"{stream}-{version}")
+
     if stream != "manageiq":
         # pre-database configuration only need for downstream
         configure = click.confirm("Do you want to setup internal database?")
 
+    logger.debug(
+        f"Appliance data: \n Image Name: {image} \n CPU: {cpu} \n Memory: {memory} \n"
+        f"Database size: {db_size}, Appliances count: {count}, Appliance Name: {name}"
+    )
+
     for _ in range(count):
         app_name = f"{name}-{time.strftime('%y%m%d-%H%M%S')}"
+        logger.debug(f"Appliance name: {app_name}")
         db_disk_name = f"{app_name}-db"
+        logger.debug(f"Appliance database disk name: {db_disk_name}")
         base_disk_name = f"{app_name}.{extension}"
+        logger.debug(f"Appliance base image name: {base_disk_name}")
 
         if image in os.listdir(box.image_path):
             source = os.path.join(box.image_path, image)
             destination = os.path.join(box.libvirt.pool_path, base_disk_name)
             copyfile(source, destination)
-            click.echo("Base appliance disk created...")
+            logger.info(f"{source} copied to {destination}")
+            click.echo(click.style("Base appliance disk created...", fg="green"))
         else:
-            click.echo("Image '{img}' not available...".format(img=image))
+            logger.warning(f"Image {image} not available in {box.image_path}")
+            click.echo(click.style(f"Image '{image}' not available...", fg="red"))
             exit(0)
 
         db = box.create_disk(name=db_disk_name, size=db_size, format=extension)
 
         if db:
-            click.echo("Database disk created...")
+            click.echo(click.style("Database disk created...", fg="green"))
         else:
-            click.echo("Database disk creation fails...")
+            click.echo(click.style("Database disk creation fails...", fg="red"))
             os.remove(destination)
             exit(1)
 
@@ -429,21 +480,24 @@ def create(image, cpu, memory, db_size, count, configure=False):
             version=version,
         )
         if app:
-            click.echo(f"Appliance {app_name} created successfully...")
+            click.echo(click.style(f"Appliance {app_name} created successfully...", fg="green"))
         else:
-            click.echo(f"Fails to create {app_name} appliance...")
+            click.echo(click.style(f"Fails to create {app_name} appliance...", fg="red"))
             exit(1)
 
         if configure:
-            click.echo("Database configuration will take some time...")
+            logger.info(f"Configuring {app_name} database")
+            click.echo(click.style("Database configuration will take some time...", fg="blue"))
+
             start_time = time.time()
             while time.time() < start_time + 30:
+                logger.debug("Waiting for hostname")
                 if app.hostname.count(".") == 3:
                     break
             else:
-                click.echo("Unable to get hostname for appliance...")
+                click.echo(click.style("Unable to get hostname for appliance...", fg="red"))
                 exit(0)
 
             app_console = Console(appliance=app)
             app_console.config_database()
-            click.echo(f"{app.name} database configured successfully...")
+            click.echo(click.style(f"{app.name} database configured successfully...", fg="green"))

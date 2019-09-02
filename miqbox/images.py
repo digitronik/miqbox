@@ -1,3 +1,4 @@
+import logging
 import os
 import socket
 
@@ -6,6 +7,8 @@ import requests
 from bs4 import BeautifulSoup
 
 from miqbox.configuration import Configuration
+
+logger = logging.getLogger(__name__)
 
 
 class Images(Configuration):
@@ -31,12 +34,15 @@ class Images(Configuration):
         repo = self.repositories.get(self.stream).url
 
         if not repo:
-            print(f"repository not set for {self.stream}")
+            logger.warning(f"repository not set for {self.stream}")
+            click.echo(click.style(f"repository not set for {self.stream}", fg="red"))
             exit(1)
 
         if self.stream == "downstream":
             base_version = ".".join(self.version.split(".")[:2])
             repo = f"{repo}/builds/cfme/{base_version}/stable"
+
+        logger.debug(f"Repository link: {repo}")
         return repo
 
     def images(self, local=False):
@@ -60,7 +66,8 @@ class Images(Configuration):
             try:
                 page = requests.get(self.repo_link, verify=self.ssl_verify).text
             except (socket.gaierror, requests.exceptions.ConnectionError):
-                click.echo("Check Network connection")
+                logger.warning(f"Unable to request: '{self.repo_link}'")
+                click.echo(click.style("Check Network connection", fg="red"))
                 exit(1)
 
             soup = BeautifulSoup(page, "html.parser")
@@ -69,6 +76,7 @@ class Images(Configuration):
                 img = node.get("href")
                 if img and img.endswith(self.extension) and self.version in img:
                     imgs.append(img)
+        logger.debug(f"Available images: {imgs}")
         return imgs
 
     def download(self, name):
@@ -78,15 +86,18 @@ class Images(Configuration):
             name (str): name of image
         """
         url = f"{self.repo_link}/{name}"
+        logger.info(f"Downloading image '{name}' from url '{url}'")
+
         try:
             r = requests.get(url=url, stream=True)
         except requests.exceptions.ConnectionError:
-            print(f"Unable to connect {url}")
-            print("Check network connection; try again...")
+            logger.warning(f"Unable to request {url}")
+            click.echo(click.style("Check network connection; try again...", fg="red"))
             exit(1)
 
         if r.status_code != requests.codes.ok:
-            click.echo(f"Unable to connect {self.repo_link}/{name}")
+            logger.warning(f"Unable to connect {self.repo_link}/{name}")
+            click.echo(click.style(f"Unable to connect {self.repo_link}/{name}", fg="red"))
             r.raise_for_status()
 
         total_size = int(r.headers.get("Content-Length"))
@@ -105,7 +116,11 @@ class Images(Configuration):
         Args:
             name (str): name of image
         """
-        os.remove(os.path.join(self.image_path, name))
+        try:
+            os.remove(os.path.join(self.image_path, name))
+            logger.info(f"'{name}' deleted from '{self.image_path}'")
+        except FileNotFoundError:
+            logger.error(f"{name} File not found in {self.image_path}")
 
     @classmethod
     def instantiate_with_image(cls, image):
@@ -127,6 +142,7 @@ def images(local, remote, filter):
     """Display images"""
 
     conf = Configuration()
+    logger.info("miqbox images command")
 
     if remote or local:
         streams = list(conf.repositories.keys())
@@ -140,8 +156,11 @@ def images(local, remote, filter):
     else:
         images = [img for img in os.listdir(conf.image_path)]
 
+    logger.debug(f"Images found: {images}")
+
     for img in images:
         if filter:
+            logger.info(f"Filtering images: '{filter}'")
             click.echo(click.style(img, fg="green")) if filter in img else 0
         else:
             click.echo(click.style(img, fg="green"))
@@ -152,12 +171,13 @@ def images(local, remote, filter):
 def pull(image_name):
     """Pull image available on remote repository"""
 
+    logger.info("miqbox pull command")
     images = Images.instantiate_with_image(image_name)
 
     if image_name not in images.images(local=True):
         images = Images.instantiate_with_image(image_name)
         images.download(image_name)
-
+        click.echo(click.style(f"{image_name} download successfully", fg="green"))
     else:
         click.echo(click.style(f"{image_name} already available", fg="red"))
 
@@ -167,11 +187,14 @@ def pull(image_name):
 def rmi(image_names):
     """Remove local images"""
 
+    logger.info("miqbox rmi command")
     conf = Configuration()
 
     for image in image_names:
         if image in os.listdir(conf.image_path):
             os.remove(os.path.join(conf.image_path, image))
+            logger.debug(f"'{image}' removed")
             click.echo(click.style(f"'{image}' removed", fg="green"))
         else:
+            logger.debug(f"'image' not available in '{conf.image_path}'")
             click.echo(click.style(f"'{image}' not available", fg="red"))

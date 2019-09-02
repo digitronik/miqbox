@@ -1,9 +1,11 @@
+import logging
 import socket
 import time
 from distutils.version import LooseVersion
 
-import click
 import paramiko
+
+logger = logging.getLogger(__name__)
 
 
 class Console(object):
@@ -30,10 +32,12 @@ class Console(object):
                     username=self.appliance.creds.username,
                     password=self.appliance.creds.password,
                 )
+                logger.info(f"connected to '{self.appliance.hostname}'")
             except Exception:
-                # TODO: Include while implementing verbos
+                logger.debug(f"fail to connect '{self.appliance.hostname}'. trying again")
                 pass
         else:
+            logger.error(f"Fail to connect '{self.appliance.hostname}'")
             return False
 
     def run_commands(self, commands, timeout=10):
@@ -44,6 +48,7 @@ class Console(object):
             timeout (int): channel timeout default 10s
         """
         self.connect()
+        logger.info("Invocking channel")
         channel = self.client.invoke_shell()
 
         for command in commands:
@@ -59,19 +64,21 @@ class Console(object):
                     if "Press any key to continue" in result:
                         break
             except socket.timeout:
+                logger.error(f"socket timeout for command: '{command}'")
                 pass
 
-            # TODO: print results in proper verbose
-            click.echo(result)
+            logger.info(f"Command '{command}' output:\n '{result}'")
 
         self.client.close()
 
     def config_database(self):
         """Configure database"""
+        logger.info(f"Configuring database of appliance: {self.appliance.name}")
         db_conf = "5" if self.appliance.version < LooseVersion("5.10") else "7"
         self.run_commands(("ap", "", db_conf, "1", "1", "1", "N", "0", "smartvm", "smartvm", "w"))
 
     def restart_server(self):
         """restart evm server"""
+        logger.info(f"Restarting EVM server of appliance: {self.appliance.name}")
         evm_server = "15" if self.appliance.version < LooseVersion("5.10") else "17"
         self.run_commands(("ap", "", evm_server, "Y", ""))
