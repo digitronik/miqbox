@@ -1,20 +1,21 @@
 language: python
 python:
-- '3.6'
+- "3.6"
+- "3.7"
+
 install:
 - pip install -r requirements-dev.txt
 script:
-- flake8 setup.py miqbox
-- black -l 99 setup.py miqbox
-- reorder-python-imports setup.py miqbox/*.py
+- pre-commit run --all-files
 after_failure:
 - git diff
 deploy:
   provider: pypi
+  skip_existing: true
+  distributions: sdist bdist_wheel
   user: digitronik
   password:
     secure: l53VC8pnFE4mWh7/d/UFucNLh/Cs8X8CPJhMX4cd0CJpiWEu6QCypZBD35saGLipUwW1ULxVmOmA6xvaYxLNXpBb918W+M+UWgoi1UjvK9RaU0jfw+d0i6xD1aMonw7gdVwmw6MM9o1tdekvQGVTHn7zSEbW0D+g1R8LcRpNIkZV3XxBD/XeIjrXfspBsgiGEq0YWvSrzE7hRzfbayVeEEIdO/F07bxzWNpqHEB0edX6XpghrVHJNlDpU7UGmStPYjjYP2v5PL3g2FYNeVnhhOA+bVFEPJR17cZaPcPo1gz8X+yJN6WfC/jIyWrhwwT/NkVb1O+nJVCQgnDo74fFuzHxbSTM7r8bEi4RI2+DH5uXRPjCXOAvc0gxzrhtPrNWcwMN1TC5577dHpCNoR2NsHv1tQvx+kzhFIKDl5lLCn0zoGqXHg37MuARicnn4VJzCNC6Q+DWRggmXBw9ud20asynYwI0I33L0QDXLDVnbnQ/S/Rc9/vIfuzVADLkLAKqeAlXEAH9WyTuJV22pswGWHPR8iOSw8XhOEsWA/mC5iszXyaDBAjA+xapjuy/x2eMj8+yQrp3qujuZ6W7hlntPw1FR1aIBjj3DEbP82eAIAwHYlBz4pqTAB2nc7XFELLsrGbhOxVaRT96F0WQgE0bQd8NLYyVlT7Z95zyALyaziU=
   on:
     tags: true
-    distributions: sdist bdist_wheel
     repo: digitronik/miqbox
