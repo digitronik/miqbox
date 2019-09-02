@@ -9,6 +9,7 @@ class Client(Configuration):
     Args:
         url (str): driver url
     """
+
     def __init__(self, url=None, *args, **kwargs):
         super(Client, self).__init__(*args, **kwargs)
         self.url = url or self.libvirt.driver
