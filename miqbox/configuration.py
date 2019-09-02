@@ -1,3 +1,4 @@
+import logging.handlers
 import os
 import subprocess
 from collections import namedtuple
@@ -8,6 +9,8 @@ from ruamel.yaml import safe_load
 
 HOME = os.environ["HOME"]
 USER = os.environ["USER"]
+
+logger = logging.getLogger(__name__)
 
 
 class Configuration(object):
@@ -21,10 +24,18 @@ class Configuration(object):
         self.conf_file = conf or os.path.join(os.path.dirname(__file__), "config.yaml")
         self.create_dict()
 
+        logging.basicConfig(
+            level=logging.DEBUG,
+            format="%(asctime)s %(name)-12s %(levelname)-8s %(message)s",
+            datefmt="%d-%m-%Y %H:%M:%S",
+            filename=os.path.join(self.log_dir, "miqbox.log"),
+            filemode="w",
+        )
+
     def create_dict(self):
         """Create basic directories if not available."""
 
-        for d in (self.image_path, self.libvirt.pool_path):
+        for d in (self.image_path, self.libvirt.pool_path, self.log_dir):
             if not os.path.isdir(d):
                 subprocess.call(["sudo", "mkdir", "-p", d])
                 subprocess.call(["sudo", "chown", USER, d])
@@ -65,6 +76,11 @@ class Configuration(object):
         return self.data.get("images").replace("~", HOME)
 
     @property
+    def log_dir(self):
+        """Log directory."""
+        return self.data.get("logs").replace("~", HOME)
+
+    @property
     def libvirt(self):
         """libvirt configuration data."""
 
@@ -93,6 +109,7 @@ def config():
 
     conf = Configuration()
     cfg = conf.data
+    logger.info("miqbox config command")
 
     cfg["libvirt"]["driver"] = click.prompt("Hypervisor drivers url", default=conf.libvirt.driver)
     cfg["libvirt"]["storage_pool"]["name"] = click.prompt(
@@ -112,4 +129,6 @@ def config():
         )
 
     conf.write(cfg=cfg)
+    logger.debug(f"configuration set to {cfg}")
+
     click.echo(click.style("Configuration saved successfully...", fg="green"))

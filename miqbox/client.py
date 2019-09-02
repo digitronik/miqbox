@@ -1,6 +1,10 @@
+import logging
+
 import libvirt
 
 from miqbox.configuration import Configuration
+
+logger = logging.getLogger(__name__)
 
 
 class Client(Configuration):
@@ -18,6 +22,7 @@ class Client(Configuration):
     def driver(self):
         """libvirt open connection"""
         try:
+            logger.info("Libvirt opening connection: %s", self.url)
             return libvirt.open(self.url)
         except libvirt.libvirtError:
-            print(f"Failed to open connection to {self.url}")
+            logger.error("Libvirt failed to open connection: %s", self.url)
