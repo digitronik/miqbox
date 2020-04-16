@@ -3,7 +3,7 @@
 
 <p align="center">
     <a href="https://pypi.org/project/miqbox"><img alt="Python Versions" src="https://img.shields.io/pypi/pyversions/miqbox.svg?style=flat"></a>
-    <a href="https://travis-ci.org/digitronik/miqbox"><img alt="Build Status" src="https://travis-ci.org/digitronik/miqbox.svg?branch=master"></a>
+    <a href="https://github.com/digitronik/miqbox/actions"><img alt="Build Status" src="https://github.com/digitronik/miqbox/workflows/Tests/badge.svg?branch=gh_action"></a>
     <a href="https://github.com/digitronik/miqbox/blob/master/LICENSE"><img alt="License: GPLV2" src="https://img.shields.io/pypi/l/miqbox.svg?version=latest"></a>
     <a href="https://pypi.org/project/miqbox/#history"><img alt="PyPI version" src="https://badge.fury.io/py/miqbox.svg"></a>
     <a href="https://pepy.tech/project/miqbox"><img alt="Downloads" src="https://pepy.tech/badge/miqbox"></a>
