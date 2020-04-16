@@ -436,14 +436,16 @@ def create(image, cpu, memory, db_size, count, configure=False):
 
         if configure:
             click.echo("Database configuration will take some time...")
+
             start_time = time.time()
-            while time.time() < start_time + 30:
+            click.echo("Waiting for hostname...")
+            while time.time() < start_time + 90:
                 if app.hostname.count(".") == 3:
                     break
             else:
                 click.echo("Unable to get hostname for appliance...")
                 exit(0)
-
+            click.echo(f"Appliance hostname: {app.hostname}")
             app_console = Console(appliance=app)
             app_console.config_database()
             click.echo(f"{app.name} database configured successfully...")

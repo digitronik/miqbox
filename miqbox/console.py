@@ -68,7 +68,7 @@ class Console(object):
 
     def config_database(self):
         """Configure database"""
-        db_conf = "5" if self.appliance.version < LooseVersion("5.10") else "7"
+        db_conf = "7" if self.appliance.version <= LooseVersion("5.11") else "5"
         self.run_commands(("ap", "", db_conf, "1", "1", "1", "N", "0", "smartvm", "smartvm", "w"))
 
     def restart_server(self):
