@@ -10,6 +10,7 @@ import time
 import xml.etree.ElementTree as ET
 from distutils.version import LooseVersion
 from shutil import copyfile
+from shutil import get_terminal_size
 
 import click
 import libvirt
@@ -385,7 +386,7 @@ def kill(name):
 @click.option("--count", default=1, prompt="Number of appliance")
 def create(image, cpu, memory, db_size, count, configure=False):
     """Create appliance"""
-
+    _apps = {}
     box = MiqBox()
     stream, prov, version, *_ = image.split("-")
     extension = image.split(".")[-1]
@@ -430,22 +431,39 @@ def create(image, cpu, memory, db_size, count, configure=False):
         )
         if app:
             click.echo(f"Appliance {app_name} created successfully...")
-        else:
-            click.echo(f"Fails to create {app_name} appliance...")
-            exit(1)
 
-        if configure:
-            click.echo("Database configuration will take some time...")
-
-            start_time = time.time()
             click.echo("Waiting for hostname...")
+            start_time = time.time()
+
             while time.time() < start_time + 90:
                 if app.hostname.count(".") == 3:
                     break
             else:
                 click.echo("Unable to get hostname for appliance...")
                 exit(0)
+            # save hostname
+            _apps[app_name] = app.hostname
+        else:
+            click.echo(f"Fails to create {app_name} appliance...")
+            exit(1)
+
+        if configure:
+            click.echo("Database configuration will take some time...")
             click.echo(f"Appliance hostname: {app.hostname}")
             app_console = Console(appliance=app)
             app_console.config_database()
             click.echo(f"{app.name} database configured successfully...")
+
+        if _apps:
+            columns = get_terminal_size().columns
+            click.echo("=" * columns)
+            click.echo("Applications created successfully".center(columns))
+            for name, hostname in _apps.items():
+                click.echo(click.style(f"{name}: {hostname}".center(columns), bold=True))
+            click.echo(
+                click.style(
+                    "Note: If Web-UI not respond; Check EVM Server process".center(columns),
+                    bold=True,
+                )
+            )
+            click.echo("=" * columns)
