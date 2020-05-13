@@ -366,16 +366,17 @@ def stop(name):
 
 
 @click.command(help="Kill Appliance")
-@click.argument("name")
-def kill(name):
+@click.argument("names_or_ids", nargs=-1)
+def kill(names_or_ids):
     """Kill appliance"""
     box = MiqBox()
-    app = box.get_appliance(name)
+    for name in names_or_ids:
+        app = box.get_appliance(name)
 
-    if app:
-        app.kill()
-    else:
-        click.echo("Please select proper Name or Id of appliance")
+        if app:
+            app.kill()
+        else:
+            click.echo("Please select proper Name or Id of appliance")
 
 
 @click.command(help="Create Appliance")
