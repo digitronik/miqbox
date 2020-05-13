@@ -14,12 +14,15 @@ from shutil import get_terminal_size
 
 import click
 import libvirt
+import requests
+import urllib3
 
 from miqbox.client import Client
-from miqbox.console import Console
+from miqbox.exception import DBConfigError
 from miqbox.miq_xmls import APPLIANCE
 from miqbox.miq_xmls import POOL
 from miqbox.miq_xmls import VOLUME
+from miqbox.ssh import SSH
 
 APP_STATES = {
     libvirt.VIR_DOMAIN_RUNNING: "running",
@@ -30,6 +33,8 @@ APP_STATES = {
     libvirt.VIR_DOMAIN_CRASHED: "crashed",
     libvirt.VIR_DOMAIN_NOSTATE: "no state",
 }
+
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
 class MiqBox(Client):
@@ -296,6 +301,50 @@ class Appliance(Client):
             "hostname": self.hostname,
         }
 
+    @property
+    def ssh_client(self):
+        """return ssh instance"""
+        return SSH(
+            hostname=self.hostname, username=self.creds.username, password=self.creds.password
+        )
+
+    def configure(self, region=0, disk="/dev/vdb"):
+        """Configure application database"""
+        out = self.ssh_client.run_command(
+            f"appliance_console_cli --region {region} "
+            f"--internal --force-key -p smartvm --dbdisk {disk}"
+        )
+        if out.rc == 0:
+            click.echo(out.stdout)
+            click.echo(f"{self.name} database configured successfully...")
+        else:
+            raise DBConfigError(f"Fail to configure database {out.stderr}")
+
+    def restart_evmserverd(self):
+        """restart evm server"""
+        out = self.ssh_client.run_command("systemctl restart evmserverd")
+        return out.rc == 0
+
+    @property
+    def is_web_ui_running(self):
+        """return true if web-ui up and running else false"""
+        try:
+            response = requests.get(
+                f"http://{self.hostname}", timeout=15, verify=False, headers={"Accept": "text/html"}
+            )
+            return True if response.status_code == 200 else False
+        except Exception:
+            return False
+
+    def wait_for_ui(self, timeout=180):
+        """wait for appliance web-ui up and running"""
+        click.echo("Waiting for Web-UI...")
+        timeout_start = time.time()
+
+        while time.time() < timeout_start + timeout:
+            if self.is_web_ui_running:
+                break
+
 
 @click.command(help="Appliance Status")
 @click.option("-a", "--all", is_flag=True, help="All Appliances")
@@ -344,9 +393,8 @@ def evmserver(restart):
 
     box = MiqBox()
     app = box.get_appliance(restart, status="running")
-    app_console = Console(appliance=app)
-    app_console.restart_server()
-    click.echo(f"{app.app.name()} server restarted successfully...")
+    if app.restart_evmserverd():
+        click.echo(f"{app.app.name()} server restarted successfully...")
 
 
 @click.command(help="Stop Appliance")
@@ -406,17 +454,17 @@ def create(image, cpu, memory, db_size, count, configure=False):
             source = os.path.join(box.image_path, image)
             destination = os.path.join(box.libvirt.pool_path, base_disk_name)
             copyfile(source, destination)
-            click.echo("Base appliance disk created...")
+            click.echo("Base appliance disk created.")
         else:
-            click.echo("Image '{img}' not available...".format(img=image))
+            click.echo("Image '{img}' not available.".format(img=image))
             exit(0)
 
         db = box.create_disk(name=db_disk_name, size=db_size, format=extension)
 
         if db:
-            click.echo("Database disk created...")
+            click.echo("Database disk created.")
         else:
-            click.echo("Database disk creation fails...")
+            click.echo("Database disk creation fails.")
             os.remove(destination)
             exit(1)
 
@@ -440,20 +488,19 @@ def create(image, cpu, memory, db_size, count, configure=False):
                 if app.hostname.count(".") == 3:
                     break
             else:
-                click.echo("Unable to get hostname for appliance...")
+                click.echo("Unable to get hostname for appliance.")
                 exit(0)
             # save hostname
             _apps[app_name] = app.hostname
         else:
-            click.echo(f"Fails to create {app_name} appliance...")
+            click.echo(f"Fails to create {app_name} appliance.")
             exit(1)
 
         if configure:
-            click.echo("Database configuration will take some time...")
             click.echo(f"Appliance hostname: {app.hostname}")
-            app_console = Console(appliance=app)
-            app_console.config_database()
-            click.echo(f"{app.name} database configured successfully...")
+            click.echo("Database configuration will take some time...")
+            app.configure()
+            app.wait_for_ui()
 
     if _apps:
         columns = get_terminal_size().columns
