@@ -510,7 +510,8 @@ def create(image, cpu, memory, db_size, count, configure=False):
             click.echo(click.style(f"{name}: {hostname}".center(columns), bold=True))
         click.echo(
             click.style(
-                "Note: If Web-UI not respond; Check EVM Server process".center(columns), bold=True,
+                "Note: If the Web-UI does not respond; Check EVM Server process".center(columns),
+                bold=True,
             )
         )
         click.echo("=" * columns)

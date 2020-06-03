@@ -88,28 +88,54 @@ class Configuration(object):
 
 
 @click.command(help="Configure MiqBox")
-def config():
-    """Configure MiqBox"""
+@click.option("-s", "--show", is_flag=True, help="Show miqbox configuration")
+def config(show):
+    """Configure MiqBox and see configuration"""
 
     conf = Configuration()
     cfg = conf.data
 
-    cfg["libvirt"]["driver"] = click.prompt("Hypervisor drivers url", default=conf.libvirt.driver)
-    cfg["libvirt"]["storage_pool"]["name"] = click.prompt(
-        "Storage Pool Name", default=conf.libvirt.pool_name
-    )
-    cfg["libvirt"]["storage_pool"]["path"] = click.prompt(
-        "Storage Pool Path", default=conf.libvirt.pool_path
-    )
-    cfg["images"] = click.prompt("Local Image Location", default=conf.image_path)
-    cfg["repositories"]["upstream"]["url"] = click.prompt(
-        "Upstream Repository", default=conf.repositories.get("upstream").url
-    )
-
-    if click.confirm("Do you want to set downstream repository?"):
-        cfg["repositories"]["downstream"]["url"] = click.prompt(
-            "Downstream Repository", default=conf.repositories.get("downstream").url
+    if show:
+        click.echo(
+            "Appliance:"
+            f'\n\tUsername: {cfg["appliance"]["username"]}'
+            f'\n\tPassword: {cfg["appliance"]["password"]}'
+        )
+        click.echo(f'Image storage location: {cfg["images"]}')
+        click.echo(
+            f'Libvirt:\n\tDriver location: {cfg["libvirt"]["driver"]}\n\tStorage pool:'
+            f'\n\t\tName: {cfg["libvirt"]["storage_pool"]["name"]}'
+            f'\n\t\tPath: {cfg["libvirt"]["storage_pool"]["path"]}'
         )
 
-    conf.write(cfg=cfg)
-    click.echo(click.style("Configuration saved successfully...", fg="green"))
+        click.echo(f'Downstream repository URL: {cfg["repositories"]["downstream"]["url"]}')
+        click.echo("Downstream versions available:")
+        for version in cfg["repositories"]["downstream"]["versions"]:
+            click.echo(f"\t{version}")
+
+        click.echo(f'Upstream repository URL: {cfg["repositories"]["upstream"]["url"]}')
+        click.echo("Upstream versions available:")
+        for version in cfg["repositories"]["upstream"]["versions"]:
+            click.echo(f"\t{version.capitalize()}")
+    else:
+        cfg["libvirt"]["driver"] = click.prompt(
+            "Hypervisor drivers url", default=conf.libvirt.driver
+        )
+        cfg["libvirt"]["storage_pool"]["name"] = click.prompt(
+            "Storage Pool Name", default=conf.libvirt.pool_name
+        )
+        cfg["libvirt"]["storage_pool"]["path"] = click.prompt(
+            "Storage Pool Path", default=conf.libvirt.pool_path
+        )
+        cfg["images"] = click.prompt("Local Image Location", default=conf.image_path)
+        cfg["repositories"]["upstream"]["url"] = click.prompt(
+            "Upstream Repository", default=conf.repositories.get("upstream").url
+        )
+
+        if click.confirm("Do you want to set downstream repository?"):
+            cfg["repositories"]["downstream"]["url"] = click.prompt(
+                "Downstream Repository", default=conf.repositories.get("downstream").url
+            )
+
+        conf.write(cfg=cfg)
+        click.echo(click.style("Configuration saved successfully...", fg="green"))
